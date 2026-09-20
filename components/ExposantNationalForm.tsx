@@ -3,6 +3,7 @@
 import { motion } from 'motion/react';
 import { useState } from 'react';
 import PocketBase from 'pocketbase';
+import { useLanguage } from '@/lib/i18n';
 
 /* ================================================================ */
 /* POCKETBASE                                                        */
@@ -195,6 +196,7 @@ type ServiceCategory =
 /* ================================================================ */
 
 export default function ExposantNationalForm() {
+  const { t } = useLanguage();
   /* -------------------------------------------------------------- */
   /* ACTIVE SERVICE CATEGORY                                        */
   /* -------------------------------------------------------------- */
@@ -562,7 +564,7 @@ export default function ExposantNationalForm() {
       );
 
       alert(
-        'Demande envoyée avec succès.'
+        t('Demande envoyée avec succès.')
       );
 
     } catch (error) {
@@ -572,7 +574,7 @@ export default function ExposantNationalForm() {
       );
 
       alert(
-        'Erreur lors de l’envoi de la demande.'
+        t('Erreur lors de l’envoi de la demande.')
       );
     }
   };
@@ -598,16 +600,15 @@ export default function ExposantNationalForm() {
       <div className="flex flex-col gap-4 text-white">
 
         <h1 className="text-4xl font-bold tracking-wide">
-          Inscription exposant national
+          {t('Inscription exposant national')}
         </h1>
 
         <p className="font-semibold text-base max-w-[700px] leading-relaxed">
-          Merci de bien vouloir nous retourner le formulaire suivant
-          afin que nous puissions vous faire parvenir une facture.
+          {t('Merci de bien vouloir nous retourner le formulaire suivant afin que nous puissions vous faire parvenir une facture.')}
         </p>
 
         <div className="bg-[#dc2626] text-white text-sm font-bold py-2.5 px-6 rounded-md w-fit mt-2">
-          Formulaire à retourner avant le 25 Octobre 2025
+          {t('Formulaire à retourner avant le 25 Octobre 2025')}
         </div>
 
       </div>
@@ -619,7 +620,7 @@ export default function ExposantNationalForm() {
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
 
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          DEMANDE DE PARTICIPATION:
+          {t('Demande de participation:')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
@@ -628,7 +629,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Raison Sociale *
+              {t('Raison Sociale')} *
             </label>
 
             <input
@@ -647,7 +648,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Pays *
+              {t('Pays')} *
             </label>
 
             <input
@@ -664,7 +665,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Secteur d'activité *
+              {t("Secteur d'activité")} *
             </label>
 
             <input
@@ -683,7 +684,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Personne à contacter *
+              {t('Personne à contacter')} *
             </label>
 
             <input
@@ -702,7 +703,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Registre de commerce N° *
+              {t('Registre de commerce N°')} *
             </label>
 
             <input
@@ -721,7 +722,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Tél *
+              {t('Tél')} *
             </label>
 
             <input
@@ -738,7 +739,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              N° Identifiant fiscal *
+              {t('N° Identifiant fiscal')} *
             </label>
 
             <input
@@ -757,7 +758,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Fax
+              {t('Fax')}
             </label>
 
             <input
@@ -774,7 +775,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Adresse *
+              {t('Adresse')} *
             </label>
 
             <input
@@ -793,7 +794,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Site web
+              {t('Site web')}
             </label>
 
             <input
@@ -812,7 +813,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Ville *
+              {t('Ville')} *
             </label>
 
             <input
@@ -831,7 +832,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Mobile *
+              {t('Mobile')} *
             </label>
 
             <input
@@ -850,7 +851,7 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Email **
+              {t('Email')} **
             </label>
 
             <input
@@ -870,7 +871,7 @@ export default function ExposantNationalForm() {
         <div className="mt-4 flex items-center gap-2">
 
           <span className="text-[#0ea5e9] text-2xl font-bold">
-            Droits d'inscription:
+              {t("Droits d'inscription:")}
           </span>
 
           <span className="text-black text-2xl font-bold">
@@ -888,7 +889,7 @@ export default function ExposantNationalForm() {
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
 
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          RESERVATION DE STAND:
+          {t('RESERVATION DE STAND:')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
@@ -898,7 +899,7 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              Stand type *
+              {t('Stand type')} *
             </label>
 
             <select
@@ -912,19 +913,19 @@ export default function ExposantNationalForm() {
             >
 
               <option value="">
-                Sélectionnez un stand
+                {t('Sélectionnez un stand')}
               </option>
 
               <option value="17000">
-                Stand aménagé (17.000 DA/m²)
+                {t('Stand aménagé (17.000 DA/m²)')}
               </option>
 
               <option value="12000">
-                Stand non aménagé (12.000 DA/m²)
+                {t('Stand non aménagé (12.000 DA/m²)')}
               </option>
 
               <option value="10000">
-                Emplacement découvert (10.000 DA/m²)
+                {t('Emplacement découvert (10.000 DA/m²)')}
               </option>
 
             </select>
@@ -936,7 +937,7 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              Superficie *
+              {t('Superficie')} *
             </label>
 
             <select
@@ -950,7 +951,7 @@ export default function ExposantNationalForm() {
             >
 
               <option value="">
-                Sélectionnez la superficie
+                {t('Sélectionnez la superficie')}
               </option>
 
               <option value="12">
@@ -1022,7 +1023,7 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              Majoration façades supplémentaires (forfait) *
+              {t('Majoration façades supplémentaires (forfait)')} *
             </label>
 
             <select
@@ -1036,7 +1037,7 @@ export default function ExposantNationalForm() {
             >
 
               <option value="">
-                Sélectionnez une option
+                {t('Sélectionnez une option')}
               </option>
 
               <option value="17000">
@@ -1060,7 +1061,7 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              Publicité sur le catalogue *
+              {t('Publicité sur le catalogue')} *
             </label>
 
             <select
@@ -1100,9 +1101,7 @@ export default function ExposantNationalForm() {
         </div>
 
         <p className="text-sm font-bold text-black mt-2">
-          L'aménagement du stand comprend : Moquette, cloisons,
-          1 table, 3 chaises, 3 spots, signalétiques prise de
-          raccommodement électrique 220V
+          {t("L'aménagement du stand comprend : Moquette, cloisons, 1 table, 3 chaises, 3 spots, signalétiques prise de raccommodement électrique 220V")}
         </p>
 
         {/* PRICE BREAKDOWN */}
@@ -1112,7 +1111,7 @@ export default function ExposantNationalForm() {
           <div className="flex items-center justify-between">
 
             <span className="text-[#0ea5e9] text-2xl font-bold">
-              Prix stand :
+              {t('Prix stand :')}
             </span>
 
             <span className="text-black text-2xl font-bold">
@@ -1127,7 +1126,7 @@ export default function ExposantNationalForm() {
           <div className="flex items-center justify-between">
 
             <span className="text-[#0ea5e9] text-2xl font-bold">
-              Électricité :
+              {t('Électricité :')}
             </span>
 
             <span className="text-black text-2xl font-bold">
@@ -1142,7 +1141,7 @@ export default function ExposantNationalForm() {
           <div className="flex items-center justify-between">
 
             <span className="text-[#0ea5e9] text-2xl font-bold">
-              Façades :
+              {t('Façades :')}
             </span>
 
             <span className="text-black text-2xl font-bold">
@@ -1157,7 +1156,7 @@ export default function ExposantNationalForm() {
           <div className="flex items-center justify-between">
 
             <span className="text-[#0ea5e9] text-2xl font-bold">
-              Publicité catalogue :
+              {t('Publicité catalogue :')}
             </span>
 
             <span className="text-black text-2xl font-bold">
@@ -1180,7 +1179,7 @@ export default function ExposantNationalForm() {
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
 
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          SERVICES SUPPLEMENTAIRES:
+          {t('SERVICES SUPPLEMENTAIRES:')}
         </div>
 
         {/* CATEGORY TABS */}
@@ -1212,7 +1211,7 @@ export default function ExposantNationalForm() {
                     : 'bg-black text-white hover:bg-gray-800'
                 }`}
               >
-                {service}
+                {t(service)}
               </button>
             );
           })}
@@ -1280,7 +1279,7 @@ export default function ExposantNationalForm() {
                       {service.price.toLocaleString(
                         'fr-DZ'
                       )}{' '}
-                      DA HT / Événement
+                      DA HT / {t('Événement')}
                     </span>
 
                   </div>
@@ -1364,7 +1363,7 @@ export default function ExposantNationalForm() {
         <div className="border-t border-gray-200 pt-6 flex justify-between items-center">
 
           <span className="text-xl font-bold text-black">
-            Services supplémentaires :
+            {t('Services supplémentaires :')}
           </span>
 
           <span className="text-2xl font-black text-[#0ea5e9]">
@@ -1385,7 +1384,7 @@ export default function ExposantNationalForm() {
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
 
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          SIGNALETIQUE DU STAND:
+          {t('SIGNALETIQUE DU STAND:')}
         </div>
 
         {/* ENSEIGNE */}
@@ -1393,8 +1392,7 @@ export default function ExposantNationalForm() {
         <div className="flex flex-col gap-1.5 mt-2">
 
           <label className="text-sm font-bold text-black">
-            Nom de la société à faire figurer sur l'enseigne du stand
-            (Maximum 20 caractères) :
+            {t("Nom de la société à faire figurer sur l'enseigne du stand (Maximum 20 caractères) :")}
           </label>
 
           <input
@@ -1410,7 +1408,7 @@ export default function ExposantNationalForm() {
           />
 
           <span className="text-xs text-gray-500">
-            {nomEnseigne.length}/20 caractères
+            {nomEnseigne.length}/20 {t('caractères')}
           </span>
 
         </div>
@@ -1422,7 +1420,7 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              Nombre de badges exposants (calculé automatiquement)
+              {t('Nombre de badges exposants (calculé automatiquement)')}
             </label>
 
             <input
@@ -1446,7 +1444,7 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              Macarons (calculé automatiquement)
+              {t('Macarons (calculé automatiquement)')}
             </label>
 
             <input
@@ -1478,19 +1476,16 @@ export default function ExposantNationalForm() {
       <div className="flex flex-col gap-6">
 
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          CONDITIONS DE PAIEMENT:
+          {t('CONDITIONS DE PAIEMENT:')}
         </div>
 
         <p className="text-gray-300 text-sm leading-relaxed max-w-[1000px] mt-2">
 
-          Les frais de participation sont payables à 100 % après
-          l'inscription et avant le 1er novembre 2025 par virement
-          bancaire à l'ordre de:
+          {t("Les frais de participation sont payables à 100 % après l'inscription et avant le 1er novembre 2025 par virement bancaire à l'ordre de:")}
 
           <br />
 
-          CAPA, Domicilié auprès de la Banque Crédit Populaire Algérie
-          Agence colonel Amirouche Sous le numéro: RIB:
+          {t('CAPA, Domicilié auprès de la Banque Crédit Populaire Algérie Agence colonel Amirouche Sous le numéro: RIB:')}
 
           <br />
 
@@ -1521,8 +1516,7 @@ export default function ExposantNationalForm() {
               className="w-5 h-5 accent-white rounded-sm"
             />
 
-            Les prix sont donnés en hors-taxe, il y a lieu de compter
-            en sus 19 % de TVA.
+            {t('Les prix sont donnés en hors-taxe, il y a lieu de compter en sus 19 % de TVA.')}
 
           </label>
 
@@ -1541,8 +1535,7 @@ export default function ExposantNationalForm() {
               className="w-5 h-5 accent-white rounded-sm"
             />
 
-            Au cas d'annulation de l'exposant, ce dernier ne peut
-            prétendre à aucun remboursement.
+            {t("Au cas d'annulation de l'exposant, ce dernier ne peut prétendre à aucun remboursement.")}
 
           </label>
 
@@ -1561,7 +1554,7 @@ export default function ExposantNationalForm() {
               className="w-5 h-5 accent-white rounded-sm"
             />
 
-            J'accepte les conditions générales
+            {t("J'accepte les conditions générales")}
 
           </label>
 
@@ -1571,12 +1564,7 @@ export default function ExposantNationalForm() {
 
         <p className="text-gray-400 text-sm leading-relaxed mt-2">
 
-          Le soussigné confirme sa participation au 10ème Salon
-          International de la Pêche et de l'Aquaculture qui se tiendra
-          Du 06 Au 09 novembre 2025 au Centre de Conventions d'Oran
-          et déclare avoir pris connaissance du règlement général du
-          salon et s'engage à en respecter toutes les clauses et les
-          conditions.
+          {t("Le soussigné confirme sa participation au 10ème Salon International de la Pêche et de l'Aquaculture qui se tiendra Du 06 Au 09 novembre 2025 au Centre de Conventions d'Oran et déclare avoir pris connaissance du règlement général du salon et s'engage à en respecter toutes les clauses et les conditions.")}
 
         </p>
 
@@ -1591,7 +1579,7 @@ export default function ExposantNationalForm() {
           <div className="flex justify-between items-center">
 
             <span className="text-lg font-bold text-gray-600">
-              Total HT
+              {t('Total HT')}
             </span>
 
             <span className="text-xl font-black text-black">
@@ -1608,7 +1596,7 @@ export default function ExposantNationalForm() {
           <div className="flex justify-between items-center">
 
             <span className="text-lg font-bold text-gray-600">
-              TVA (19%)
+              {t('TVA (19%)')}
             </span>
 
             <span className="text-xl font-black text-black">
@@ -1629,11 +1617,11 @@ export default function ExposantNationalForm() {
             <div className="flex flex-col gap-2 text-center md:text-left">
 
               <span className="text-2xl font-black text-black uppercase tracking-wide">
-                Total à payer
+                {t('Total à payer')}
               </span>
 
               <span className="text-base font-bold text-gray-500">
-                TVA (19%) incluse
+                {t('TVA (19%) incluse')}
               </span>
 
             </div>
@@ -1664,7 +1652,7 @@ export default function ExposantNationalForm() {
           onClick={handleSubmit}
           className="bg-[#0ea5e9] text-white font-bold h-[88px] rounded-xl text-2xl hover:bg-[#0284c7] transition-colors"
         >
-          Soumettre la demande
+          {t('Soumettre la demande')}
         </button>
 
       </div>

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useLanguage } from '@/lib/i18n';
 
 const slides = [
   {
@@ -51,6 +52,7 @@ const slides = [
 ];
 
 export default function ImageCarouselBanner() {
+  const { t } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const currentSlide = slides[currentIndex];
@@ -201,7 +203,7 @@ export default function ImageCarouselBanner() {
                   xl:text-6xl
                 "
               >
-                {currentSlide.title}
+                {t(currentSlide.title)}
               </h1>
 
               {/* BUTTONS */}
@@ -241,7 +243,7 @@ export default function ImageCarouselBanner() {
                     md:px-7
                   "
                 >
-                  Exposant National
+                  {t('Exposant National')}
                 </Link>
 
                 {/* International */}
@@ -268,7 +270,7 @@ export default function ImageCarouselBanner() {
                     md:px-7
                   "
                 >
-                  Exposant International
+                  {t('Exposant International')}
                 </Link>
               </div>
 

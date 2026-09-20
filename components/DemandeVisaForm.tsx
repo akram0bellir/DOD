@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import PocketBase from 'pocketbase';
+import { useLanguage } from '@/lib/i18n';
 
 const pb = new PocketBase('http://127.0.0.1:8090');
 
 export default function DemandeVisaForm() {
+  const { t } = useLanguage();
   // =========================
   // FORM STATES
   // =========================
@@ -102,7 +104,7 @@ export default function DemandeVisaForm() {
 
       console.log('Record created:', record);
 
-      setMessage('Votre demande a été envoyée avec succès.');
+      setMessage(t('Votre demande a été envoyée avec succès.'));
 
       // =========================
       // RESET FORM
@@ -152,19 +154,18 @@ export default function DemandeVisaForm() {
       {/* Title Section */}
       <div className="flex flex-col gap-4 text-white">
         <h1 className="text-4xl font-bold tracking-wide">
-          Demande d'invitation pour visa
+          {t("Demande d'invitation pour visa")}
         </h1>
 
         <p className="font-semibold text-base max-w-[700px] leading-relaxed">
-          Renseignez vos informations de passeport pour l'obtention de la lettre
-          d'invitation.
+          {t("Renseignez vos informations de passeport pour l'obtention de la lettre d'invitation.")}
         </p>
       </div>
 
       {/* Section 1 */}
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          INFORMATIONS PROFESSIONNELLES DU VISITEUR:
+          {t('INFORMATIONS PROFESSIONNELLES DU VISITEUR:')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
@@ -172,7 +173,7 @@ export default function DemandeVisaForm() {
           {/* companyName */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Nom de l'entreprise *
+              {t("Nom de l'entreprise")} *
             </label>
 
             <input
@@ -188,7 +189,7 @@ export default function DemandeVisaForm() {
           {/* secteur */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Secteur d'activité *
+              {t("Secteur d'activité")} *
             </label>
 
             <input
@@ -205,7 +206,7 @@ export default function DemandeVisaForm() {
           {/* Commercial_Register_N */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Registre de commerce N°
+              {t('Registre de commerce N°')}
             </label>
 
             <input
@@ -220,7 +221,7 @@ export default function DemandeVisaForm() {
           {/* Tax_ID_number */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              N° Identifiant fiscal
+              {t('N° Identifiant fiscal')}
             </label>
 
             <input
@@ -235,7 +236,7 @@ export default function DemandeVisaForm() {
           {/* adresse */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Adresse *
+              {t('Adresse')} *
             </label>
 
             <input
@@ -251,7 +252,7 @@ export default function DemandeVisaForm() {
           {/* ville */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Ville *
+              {t('Ville')} *
             </label>
 
             <input
@@ -267,7 +268,7 @@ export default function DemandeVisaForm() {
           {/* pays */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Pays *
+              {t('Pays')} *
             </label>
 
             <input
@@ -283,7 +284,7 @@ export default function DemandeVisaForm() {
           {/* p_a_contacter */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Personne à contacter *
+              {t('Personne à contacter')} *
             </label>
 
             <input
@@ -299,7 +300,7 @@ export default function DemandeVisaForm() {
           {/* telephone */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Tél *
+              {t('Tél')} *
             </label>
 
             <input
@@ -315,7 +316,7 @@ export default function DemandeVisaForm() {
           {/* fax */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Fax
+              {t('Fax')}
             </label>
 
             <input
@@ -330,7 +331,7 @@ export default function DemandeVisaForm() {
           {/* mobile */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Mobile *
+              {t('Mobile')} *
             </label>
 
             <input
@@ -346,7 +347,7 @@ export default function DemandeVisaForm() {
           {/* email */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Email *
+              {t('Email')} *
             </label>
 
             <input
@@ -362,7 +363,7 @@ export default function DemandeVisaForm() {
           {/* siteweb */}
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-sm font-bold text-black">
-              Site web
+              {t('Site web')}
             </label>
 
             <input
@@ -379,7 +380,7 @@ export default function DemandeVisaForm() {
       {/* Section 2 */}
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          DÉTAILS DE LA DEMANDE DE VISA:
+          {t('DÉTAILS DE LA DEMANDE DE VISA:')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
@@ -387,7 +388,7 @@ export default function DemandeVisaForm() {
           {/* passportNumber */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Numéro de passeport *
+              {t('Numéro de passeport')} *
             </label>
 
             <input
@@ -403,7 +404,7 @@ export default function DemandeVisaForm() {
           {/* Autorite_emettrice */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Autorité émettrice *
+              {t('Autorité émettrice')} *
             </label>
 
             <input
@@ -419,7 +420,7 @@ export default function DemandeVisaForm() {
           {/* Date_of_issue */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Date d'émission *
+              {t("Date d'émission")} *
             </label>
 
             <input
@@ -435,7 +436,7 @@ export default function DemandeVisaForm() {
           {/* Expiration_date */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Date d'expiration *
+              {t("Date d'expiration")} *
             </label>
 
             <input
@@ -451,7 +452,7 @@ export default function DemandeVisaForm() {
           {/* Purpose_of_the_visit */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Objet de la visite *
+              {t('Objet de la visite')} *
             </label>
 
             <input
@@ -467,7 +468,7 @@ export default function DemandeVisaForm() {
           {/* Position_held_ */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Poste occupé *
+              {t('Poste occupé')} *
             </label>
 
             <input
@@ -483,7 +484,7 @@ export default function DemandeVisaForm() {
           {/* arrive_on */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Date d'arrivée prévue *
+              {t("Date d'arrivée prévue")} *
             </label>
 
             <input
@@ -499,7 +500,7 @@ export default function DemandeVisaForm() {
           {/* departure_on */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Date de départ prévue *
+              {t('Date de départ prévue')} *
             </label>
 
             <input
@@ -515,12 +516,12 @@ export default function DemandeVisaForm() {
           {/* Passport scan */}
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-sm font-bold text-black">
-              Upload scan passeport *
+              {t('Upload scan passeport')} *
             </label>
 
             <label className="w-full bg-[#f3f4f6] border border-dashed border-gray-300 rounded h-10 px-3 flex items-center gap-2 cursor-pointer text-sm text-gray-600 focus-within:outline-none focus-within:border-sky-500">
               <span>
-                {scanFileName || 'Choisir un fichier...'}
+                {scanFileName || t('Choisir un fichier...')}
               </span>
 
               <input
@@ -545,12 +546,11 @@ export default function DemandeVisaForm() {
       <div className="flex flex-col gap-6">
 
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          CONFIRMATION:
+          {t('CONFIRMATION:')}
         </div>
 
         <p className="text-gray-300 text-sm leading-relaxed max-w-[1000px]">
-          Le soussigné confirme sa demande d'invitation pour visa et déclare
-          que les informations fournies ci-dessus sont exactes.
+          {t("Le soussigné confirme sa demande d'invitation pour visa et déclare que les informations fournies ci-dessus sont exactes.")}
         </p>
 
         <label className="flex items-start gap-3 cursor-pointer w-fit text-white text-sm font-bold">
@@ -563,10 +563,7 @@ export default function DemandeVisaForm() {
           />
 
           <span className="font-normal leading-relaxed">
-            J'accepte que mes données personnelles soient collectées et
-            traitées dans le cadre de cette demande, conformément à la loi
-            n° 18-07 du 10 juin 2018 relative à la protection des personnes
-            physiques dans le traitement des données à caractère personnel.
+            {t("J'accepte que mes données personnelles soient collectées et traitées dans le cadre de cette demande, conformément à la loi n° 18-07 du 10 juin 2018 relative à la protection des personnes physiques dans le traitement des données à caractère personnel.")}
           </span>
         </label>
 
@@ -589,7 +586,7 @@ export default function DemandeVisaForm() {
           disabled={!consent || !scanFile || submitting}
           className="mt-6 md:mt-0 bg-[#0ea5e9] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-md px-10 h-12 hover:bg-[#0284c7] transition-colors text-sm tracking-wide"
         >
-          {submitting ? 'ENVOI EN COURS...' : 'ENVOYER'}
+          {submitting ? t('ENVOI EN COURS...') : t('ENVOYER')}
         </button>
       </div>
     </form>

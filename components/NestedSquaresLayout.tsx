@@ -6,13 +6,14 @@ export default function ExactSizeSquaresLayout() {
   const getRatio = () =>
     Math.min((window.innerWidth - 10) / DESIGN_WIDTH, 1);
 
-  const [ratio, setRatio] = useState(getRatio);
+  const [ratio, setRatio] = useState(1);
 
   useEffect(() => {
     const handleResize = () => {
       setRatio(getRatio());
     };
 
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);

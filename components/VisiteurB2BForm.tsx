@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import PocketBase from 'pocketbase';
+import { useLanguage } from '@/lib/i18n';
 
 const SECTEURS = ['Peche', 'Aquaculture', 'Equipements', 'Autres'];
 
 const pb = new PocketBase('http://127.0.0.1:8090');
 
 export default function VisiteurB2BForm() {
+  const { t } = useLanguage();
   // =========================
   // FORM STATES
   // =========================
@@ -69,7 +71,7 @@ export default function VisiteurB2BForm() {
 
       console.log('Record created:', record);
 
-      alert('Votre demande a été envoyée avec succès.');
+      alert(t('Votre demande a été envoyée avec succès.'));
 
       // Reset form
       setVisitorsName('');
@@ -92,7 +94,7 @@ export default function VisiteurB2BForm() {
       console.error('PocketBase error:', error);
 
       alert(
-        'Une erreur est survenue lors de l’envoi de votre demande.'
+        t('Une erreur est survenue lors de l’envoi de votre demande.')
       );
     } finally {
       setLoading(false);
@@ -104,19 +106,18 @@ export default function VisiteurB2BForm() {
       {/* Title Section */}
       <div className="flex flex-col gap-4 text-white">
         <h1 className="text-4xl font-bold tracking-wide">
-          Visiteur professionnel B2B
+          {t('Visiteur professionnel B2B')}
         </h1>
 
         <p className="font-semibold text-base max-w-[700px] leading-relaxed">
-          Renseignez vos informations pour accéder aux badges professionnels
-          et planifier vos rendez-vous B2B.
+          {t('Renseignez vos informations pour accéder aux badges professionnels et planifier vos rendez-vous B2B.')}
         </p>
       </div>
 
       {/* Section 1: Informations sur le visiteur */}
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          INFORMATIONS SUR LE VISITEUR:
+          {t('INFORMATIONS SUR LE VISITEUR:')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
@@ -124,7 +125,7 @@ export default function VisiteurB2BForm() {
           {/* Dénomination */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Dénomination du visiteur *
+              {t('Dénomination du visiteur')} *
             </label>
 
             <input
@@ -140,7 +141,7 @@ export default function VisiteurB2BForm() {
           {/* Personne à contacter */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Personne à contacter
+              {t('Personne à contacter')}
             </label>
 
             <input
@@ -155,7 +156,7 @@ export default function VisiteurB2BForm() {
           {/* Secteur */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Secteur d'activité *
+              {t("Secteur d'activité")} *
             </label>
 
             <select
@@ -165,7 +166,7 @@ export default function VisiteurB2BForm() {
               onChange={(e) => setSecteur(e.target.value)}
               className="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500"
             >
-              <option value="">Secteur d'activité *</option>
+              <option value="">{t("Secteur d'activité")} *</option>
 
               {SECTEURS.map((s) => (
                 <option key={s} value={s}>
@@ -178,7 +179,7 @@ export default function VisiteurB2BForm() {
           {/* Téléphone */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Tél *
+              {t('Tél')} *
             </label>
 
             <input
@@ -195,7 +196,7 @@ export default function VisiteurB2BForm() {
           {secteur === 'Autres' && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-bold text-black">
-                Préciser le secteur
+                {t('Préciser le secteur')}
               </label>
 
               <input
@@ -211,7 +212,7 @@ export default function VisiteurB2BForm() {
           {/* Fax */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Fax
+              {t('Fax')}
             </label>
 
             <input
@@ -226,7 +227,7 @@ export default function VisiteurB2BForm() {
           {/* Registre de commerce */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Registre de commerce N°
+              {t('Registre de commerce N°')}
             </label>
 
             <input
@@ -241,7 +242,7 @@ export default function VisiteurB2BForm() {
           {/* Mobile */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Mobile
+              {t('Mobile')}
             </label>
 
             <input
@@ -256,7 +257,7 @@ export default function VisiteurB2BForm() {
           {/* Identifiant fiscal */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              N° Identifiant fiscal
+              {t('N° Identifiant fiscal')}
             </label>
 
             <input
@@ -271,7 +272,7 @@ export default function VisiteurB2BForm() {
           {/* Email */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Email *
+              {t('Email')} *
             </label>
 
             <input
@@ -287,7 +288,7 @@ export default function VisiteurB2BForm() {
           {/* Adresse */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Adresse *
+              {t('Adresse')} *
             </label>
 
             <input
@@ -303,7 +304,7 @@ export default function VisiteurB2BForm() {
           {/* Site web */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Site web
+              {t('Site web')}
             </label>
 
             <input
@@ -318,7 +319,7 @@ export default function VisiteurB2BForm() {
           {/* Ville */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Ville *
+              {t('Ville')} *
             </label>
 
             <input
@@ -334,7 +335,7 @@ export default function VisiteurB2BForm() {
           {/* Pays */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              Pays *
+              {t('Pays')} *
             </label>
 
             <input
@@ -352,7 +353,7 @@ export default function VisiteurB2BForm() {
       {/* Section 2: Droits d'inscription */}
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-4">
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          DROITS D'INSCRIPTION:
+          {t("DROITS D'INSCRIPTION:")}
         </div>
 
         <div className="flex flex-col gap-1 mt-2">
@@ -362,7 +363,7 @@ export default function VisiteurB2BForm() {
             </span>
 
             <span className="text-black text-base font-semibold">
-              / Visiteur national
+              / {t('Visiteur national')}
             </span>
           </div>
 
@@ -372,7 +373,7 @@ export default function VisiteurB2BForm() {
             </span>
 
             <span className="text-black text-base font-semibold">
-              / Visiteur international
+              / {t('Visiteur international')}
             </span>
           </div>
         </div>
@@ -382,7 +383,7 @@ export default function VisiteurB2BForm() {
       <div className="flex flex-col gap-6">
 
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
-          CONFIRMATION:
+          {t('CONFIRMATION:')}
         </div>
 
         <div className="flex flex-col gap-4 text-white text-sm font-bold">
@@ -398,8 +399,7 @@ export default function VisiteurB2BForm() {
             />
 
             <span className="font-normal leading-relaxed">
-              Les prix sont donnés en hors-taxe, il y a lieu de compter en sus
-              19 % de TVA.
+              {t('Les prix sont donnés en hors-taxe, il y a lieu de compter en sus 19 % de TVA.')}
             </span>
           </label>
 
@@ -414,11 +414,7 @@ export default function VisiteurB2BForm() {
             />
 
             <span className="font-normal leading-relaxed">
-              J'autorise la Chambre Algérienne de la Pêche et de l'Aquaculture
-              à collecter et traiter mes données personnelles dans le cadre de
-              la validation de ma demande d'inscription, conformément à la loi
-              18-07 du 10 juin 2018 relative à la protection des personnes
-              physiques dans le traitement des données à caractère personnel.
+              {t("J'autorise la Chambre Algérienne de la Pêche et de l'Aquaculture à collecter et traiter mes données personnelles dans le cadre de la validation de ma demande d'inscription, conformément à la loi 18-07 du 10 juin 2018 relative à la protection des personnes physiques dans le traitement des données à caractère personnel.")}
             </span>
           </label>
         </div>
@@ -428,11 +424,11 @@ export default function VisiteurB2BForm() {
 
           <div className="flex flex-col gap-2 w-full md:w-auto text-center md:text-left">
             <span className="text-2xl font-black text-black uppercase tracking-wide">
-              Envoyer la demande
+              {t('Envoyer la demande')}
             </span>
 
             <span className="text-base font-bold text-gray-500">
-              Vous recevrez votre badge professionnel par email
+              {t('Vous recevrez votre badge professionnel par email')}
             </span>
           </div>
 
@@ -441,7 +437,7 @@ export default function VisiteurB2BForm() {
             disabled={!tva || !consent || loading}
             className="mt-6 md:mt-0 bg-[#0ea5e9] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-md px-10 h-12 hover:bg-[#0284c7] transition-colors text-sm tracking-wide"
           >
-            {loading ? 'ENVOI...' : 'ENVOYER'}
+            {loading ? t('ENVOI...') : t('ENVOYER')}
           </button>
         </div>
       </div>

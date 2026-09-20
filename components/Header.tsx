@@ -5,12 +5,29 @@ import { motion, AnimatePresence } from 'motion/react';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, Menu, X, Download } from 'lucide-react';
 import { useState } from 'react';
+import { Locale, useLanguage } from '@/lib/i18n';
 
 export default function Header() {
   const pathname = usePathname();
+  const { locale, setLocale, t } = useLanguage();
 
   const [ficheOpen, setFicheOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  /* ============================================================= */
+  /* SMOOTH SCROLL TO FOOTER                                       */
+  /* ============================================================= */
+
+  const scrollToFooter = () => {
+    const footer = document.getElementById('footer');
+    if (footer) {
+      footer.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+    setMobileOpen(false);
+  };
 
   /* ============================================================= */
   /* PUT YOUR DOWNLOADABLE FILES HERE                              */
@@ -35,18 +52,12 @@ export default function Header() {
     },
   ];
 
-  const links = [
-    { name: 'Accueil', path: '/' },
-    { name: 'Espace Exposant', path: '/espace-exposant' },
-    { name: 'Editions Précédentes', path: '/editions-precedentes' },
-  ];
-
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm">
       <div className="mx-auto flex h-24 w-full max-w-[1400px] items-center px-4 md:px-8">
 
         {/* ======================================================= */}
-        {/* LOGOS + NAVIGATION — SAME CONTAINER AS YOUR ORIGINAL   */}
+        {/* LOGOS + NAVIGATION                                      */}
         {/* ======================================================= */}
 
         <div className="flex min-w-0 flex-1 items-center gap-8">
@@ -54,33 +65,20 @@ export default function Header() {
           {/* Logos */}
           <div className="flex shrink-0 items-center gap-4">
             <div className="flex items-center gap-2">
-
               <div className="flex h-14 w-12 flex-col items-center justify-center rounded bg-sky-600 text-[8px] font-bold leading-tight text-white">
-                <span>SIPA</span>
-                <span>2025</span>
+                <img src="/capa.png" alt="" />
               </div>
-
               <div className="flex h-14 w-12 flex-col items-center justify-center rounded border border-sky-200 bg-sky-100 text-[8px] font-bold leading-tight text-sky-800">
-                <span>10ème</span>
-                <span>SIPA</span>
+                <img src="/sipa.png" alt="" />
               </div>
-
-              <div className="flex h-10 w-14">
-                <div className="h-full w-1/2 bg-green-600" />
-                <div className="relative flex h-full w-1/2 items-center justify-center border border-gray-200 bg-white">
-                  <div className="absolute text-lg text-red-500">★</div>
-                </div>
-              </div>
-
             </div>
           </div>
 
           {/* ===================================================== */}
-          {/* DESKTOP NAVIGATION — STILL BESIDE LOGOS              */}
+          {/* DESKTOP NAVIGATION                                    */}
           {/* ===================================================== */}
 
           <nav className="hidden min-w-0 items-center gap-0 lg:flex">
-
             {/* Accueil */}
             <Link href="/">
               <span
@@ -90,7 +88,7 @@ export default function Header() {
                     : 'text-gray-700 hover:text-sky-600'
                 }`}
               >
-                Accueil
+                {t('Accueil')}
               </span>
             </Link>
 
@@ -103,14 +101,11 @@ export default function Header() {
                     : 'text-gray-700 hover:text-sky-600'
                 }`}
               >
-                Espace Exposant
+                {t('Espace Exposant')}
               </span>
             </Link>
 
-            {/* =================================================== */}
-            {/* FICHE DROPDOWN                                      */}
-            {/* =================================================== */}
-
+            {/* FICHE DROPDOWN */}
             <div
               className="relative"
               onMouseEnter={() => setFicheOpen(true)}
@@ -125,8 +120,7 @@ export default function Header() {
                     : 'text-gray-700 hover:text-sky-600'
                 }`}
               >
-                Fiche
-
+                {t('Fiche')}
                 <ChevronDown
                   className={`h-4 w-4 transition-transform ${
                     ficheOpen ? 'rotate-180' : ''
@@ -149,10 +143,7 @@ export default function Header() {
                         download
                         className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-gray-700 transition-colors hover:bg-sky-50 hover:text-sky-700"
                       >
-                        <span className="truncate">
-                          {item.name}
-                        </span>
-
+                        <span className="truncate">{item.name}</span>
                         <Download className="h-4 w-4 shrink-0" />
                       </a>
                     ))}
@@ -170,27 +161,78 @@ export default function Header() {
                     : 'text-gray-700 hover:text-sky-600'
                 }`}
               >
-                Editions Précédentes
+                {t('Editions Précédentes')}
               </span>
             </Link>
-
           </nav>
         </div>
 
         {/* ======================================================= */}
-        {/* CONTACT — REMAINS ON THE RIGHT                         */}
+        {/* LANGUAGE DROPDOWN & CONTACT (DESKTOP)                   */}
         {/* ======================================================= */}
 
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="hidden shrink-0 rounded bg-[#0ea5e9] px-6 py-2.5 text-sm font-medium text-white lg:block"
-        >
-          Contact
-        </motion.button>
+        <div className="hidden items-center gap-4 lg:flex">
+          {/* Language Dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={() => setLangOpen(true)}
+            onMouseLeave={() => setLangOpen(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setLangOpen(!langOpen)}
+              className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-bold uppercase text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <span>{locale}</span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${
+                  langOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {langOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="absolute right-0 top-full z-50 mt-2 w-28 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
+                >
+                  {(['fr', 'en', 'ar'] as Locale[]).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => {
+                        setLocale(option);
+                        setLangOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between px-4 py-2.5 text-xs font-bold uppercase transition-colors ${
+                        locale === option
+                          ? 'bg-sky-100 text-sky-700'
+                          : 'text-gray-700 hover:bg-sky-50'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={scrollToFooter}
+            className="shrink-0 rounded bg-[#0ea5e9] px-6 py-2.5 text-sm font-medium text-white cursor-pointer"
+          >
+            {t('Contact')}
+          </motion.button>
+        </div>
 
         {/* ======================================================= */}
-        {/* MOBILE BUTTON                                          */}
+        {/* MOBILE BUTTON                                           */}
         {/* ======================================================= */}
 
         <button
@@ -198,16 +240,12 @@ export default function Header() {
           onClick={() => setMobileOpen(!mobileOpen)}
           className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-gray-700 hover:bg-gray-100 lg:hidden"
         >
-          {mobileOpen ? (
-            <X className="h-6 w-6" />
-          ) : (
-            <Menu className="h-6 w-6" />
-          )}
+          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </div>
 
       {/* ========================================================= */}
-      {/* MOBILE NAV — ONLY APPEARS BELOW lg                       */}
+      {/* MOBILE NAV                                                */}
       {/* ========================================================= */}
 
       <AnimatePresence>
@@ -219,13 +257,31 @@ export default function Header() {
             className="border-t border-gray-100 bg-white lg:hidden"
           >
             <div className="flex flex-col px-4 py-3">
+              {/* Mobile Language Switcher */}
+              <div className="flex items-center gap-2 border-b border-gray-100 px-4 pb-3">
+                {(['fr', 'en', 'ar'] as Locale[]).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setLocale(option)}
+                    aria-pressed={locale === option}
+                    className={`rounded px-3 py-2 text-xs font-bold uppercase ${
+                      locale === option
+                        ? 'bg-sky-100 text-sky-700'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
 
               <Link
                 href="/"
                 onClick={() => setMobileOpen(false)}
                 className="rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:bg-sky-50"
               >
-                Accueil
+                {t('Accueil')}
               </Link>
 
               <Link
@@ -233,9 +289,9 @@ export default function Header() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:bg-sky-50"
               >
-                Espace Exposant
+                {t('Espace Exposant')}
               </Link>
-
+ 
               {/* Mobile Fiche */}
               <div>
                 <button
@@ -243,8 +299,7 @@ export default function Header() {
                   onClick={() => setFicheOpen(!ficheOpen)}
                   className="flex w-full items-center justify-between rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:bg-sky-50"
                 >
-                  Fiche
-
+                  {t('Fiche')}
                   <ChevronDown
                     className={`h-4 w-4 transition-transform ${
                       ficheOpen ? 'rotate-180' : ''
@@ -275,17 +330,16 @@ export default function Header() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-md px-4 py-3 text-sm font-medium text-gray-700 hover:bg-sky-50"
               >
-                Editions Précédentes
+                {t('Editions Précédentes')}
               </Link>
 
               <button
                 type="button"
-                onClick={() => setMobileOpen(false)}
+                onClick={scrollToFooter}
                 className="mt-2 rounded bg-[#0ea5e9] px-6 py-3 text-sm font-medium text-white"
               >
-                Contact
+                {t('Contact')}
               </button>
-
             </div>
           </motion.nav>
         )}

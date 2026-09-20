@@ -2,6 +2,7 @@
 
 import { motion, useScroll, useSpring, useTransform } from 'motion/react';
 import { useRef } from 'react';
+import { useLanguage } from '@/lib/i18n';
 
 const timelineItems = [
   'Rencontrer des acheteurs qualifiés et des partenaires potentiels.',
@@ -11,6 +12,7 @@ const timelineItems = [
 ];
 
 export default function Timeline() {
+  const { t } = useLanguage();
   const timelineRef = useRef<HTMLDivElement>(null);
 
   const { scrollYProgress } = useScroll({
@@ -72,7 +74,7 @@ export default function Timeline() {
             return (
               <TimelineItem
                 key={index}
-                text={text}
+                text={t(text)}
                 index={index}
                 isLeft={isLeft}
               />

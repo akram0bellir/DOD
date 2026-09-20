@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
+import { useLanguage } from '@/lib/i18n';
 
 const EDITIONS = {
   '9ème Édition': [
@@ -43,9 +44,12 @@ const EDITIONS = {
   ],
 };
 
+type Edition = keyof typeof EDITIONS;
+
 export default function EditionsPrecedentes() {
-  const [edition, setEdition] = useState('9ème Édition');
-  const [selectedImage, setSelectedImage] = useState(null);
+  const { t } = useLanguage();
+  const [edition, setEdition] = useState<Edition>('9ème Édition');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const images = EDITIONS[edition];
 
@@ -64,12 +68,11 @@ export default function EditionsPrecedentes() {
               </p>
 
               <h2 className="text-4xl md:text-5xl font-bold text-gray-950">
-                Éditions précédentes
+                {t('Éditions précédentes')}
               </h2>
 
               <p className="mt-4 max-w-2xl text-gray-500">
-                Retour sur les moments forts des éditions précédentes
-                du Salon International de la Pêche et de l'Aquaculture.
+                {t("Retour sur les moments forts des éditions précédentes du Salon International de la Pêche et de l'Aquaculture.")}
               </p>
             </div>
 
@@ -77,12 +80,12 @@ export default function EditionsPrecedentes() {
             <div className="w-full md:w-[260px]">
 
               <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-                Choisir une édition
+                {t('Choisir une édition')}
               </label>
 
               <select
                 value={edition}
-                onChange={(e) => setEdition(e.target.value)}
+                onChange={(e) => setEdition(e.target.value as Edition)}
                 className="
                   w-full
                   bg-gray-50
@@ -121,7 +124,7 @@ export default function EditionsPrecedentes() {
           </div>
 
           <span className="text-sm text-gray-400">
-            {images.length} photographies
+            {images.length} {t('photographies')}
           </span>
 
         </div>

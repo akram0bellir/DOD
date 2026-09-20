@@ -12,10 +12,12 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState } from 'react';
+import { useLanguage } from '@/lib/i18n';
 
 const pb = new PocketBase('http://127.0.0.1:8090');
 
 export default function Footer() {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     Nom_et_prenom_: '',
     Telephone_: '',
@@ -100,7 +102,7 @@ export default function Footer() {
             <div className="w-full md:w-1/2 flex flex-col gap-6">
 
               <h2 className="text-white text-2xl font-bold mb-4">
-                CONTACTEZ-NOUS
+                {t('Contactez-nous')}
               </h2>
 
               <div className="flex flex-col gap-4">
@@ -113,7 +115,7 @@ export default function Footer() {
 
                   <div>
                     <h4 className="text-white font-bold">
-                      Address
+                      {t('Address')}
                     </h4>
 
                     <p className="text-gray-300 text-sm">
@@ -130,7 +132,7 @@ export default function Footer() {
 
                   <div>
                     <h4 className="text-white font-bold">
-                      Phone
+                      {t('Phone')}
                     </h4>
 
                     <p className="text-gray-300 text-sm">
@@ -147,7 +149,7 @@ export default function Footer() {
 
                   <div>
                     <h4 className="text-white font-bold">
-                      Whatsapp
+                      {t('Whatsapp')}
                     </h4>
 
                     <p className="text-gray-300 text-sm">
@@ -164,7 +166,7 @@ export default function Footer() {
 
                   <div>
                     <h4 className="text-white font-bold">
-                      Email
+                      {t('Email')}
                     </h4>
 
                     <p className="text-gray-300 text-sm">
@@ -206,7 +208,7 @@ export default function Footer() {
               {/* NAME */}
               <div className="flex flex-col gap-1">
                 <label className="text-white text-sm">
-                  Nom et prénom *
+                  {t('Nom et prénom')} *
                 </label>
 
                 <input
@@ -223,7 +225,7 @@ export default function Footer() {
               {/* PHONE */}
               <div className="flex flex-col gap-1">
                 <label className="text-white text-sm">
-                  Telephone *
+                  {t('Telephone')} *
                 </label>
 
                 <input
@@ -240,7 +242,7 @@ export default function Footer() {
               {/* EMAIL */}
               <div className="flex flex-col gap-1">
                 <label className="text-white text-sm">
-                  Email *
+                  {t('Email')} *
                 </label>
 
                 <input
@@ -257,7 +259,7 @@ export default function Footer() {
               {/* MESSAGE */}
               <div className="flex flex-col gap-1">
                 <label className="text-white text-sm">
-                  Message
+                  {t('Message')}
                 </label>
 
                 <textarea
@@ -295,8 +297,8 @@ export default function Footer() {
                 className="w-full h-12 bg-[#42a5f5] text-white font-semibold rounded mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading
-                  ? 'Envoi en cours...'
-                  : 'Envoyer Message'}
+                  ? t('Envoi en cours...')
+                  : t('Envoyer Message')}
               </motion.button>
 
             </form>

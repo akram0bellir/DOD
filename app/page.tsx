@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { motion } from 'motion/react';
 import Image from 'next/image';
 import ImageCarouselBanner from '@/components/ImageCarouselBanner';
@@ -7,6 +8,7 @@ import IntroSection from '@/components/IntroSection';
 import NestedSquaresLayout from '@/components/NestedSquaresLayout';
 import PartnerTicker from '@/components/PartnerTicker';
 import Timeline from '@/components/TimelineItems';
+import { useLanguage } from '@/lib/i18n';
 
 const algeriaData = [
   { label: 'Nom officiel', value: 'République Démocratique Algérienne' },
@@ -24,7 +26,18 @@ const algeriaData = [
   { label: 'Indicatif téléphonique', value: '+213' },
 ];
 
+const objectives = [
+  "Coopération entre les opérateurs économiques nationaux et internationaux, afin de stimuler l'échange d'expériences et le développement commun dans les secteurs de la pêche et de l'aquaculture.",
+  "Identifier et promouvoir les nouvelles technologies révolutionnant la pêche et l'aquaculture, tout en facilitant le transfert de compétences et d'expertise à l'échelle internationale.",
+  "Mettre en lumière les projets innovants dans les domaines de la pêche maritime et de l'aquaculture, et soutenir l'émergence d'entreprises innovantes, contribuant ainsi à l'évolution du secteur.",
+  "Engager des discussions stratégiques sur les modalités de coopération et de partenariat avec les pays frères et amis, ainsi qu'avec les organisations internationales et régionales, afin de renforcer les liens dans le domaine de la pêche et de l'aquaculture.",
+  "Valoriser les capacités et les opportunités d'investissements dans les secteurs de la pêche et de l'aquaculture, en mettant en évidence leur potentiel pour un développement durable et rentable.",
+  "Offrir une plateforme pour découvrir les dernières innovations et tendances des filières de la pêche et de l'aquaculture, permettant ainsi aux professionnels de se tenir informés des évolutions du marché.",
+  "Encourager la coopération intersectorielle et les partenariats stratégiques en vue de diversifier et de renforcer les activités liées à la pêche et à l'aquaculture, dans un objectif de durabilité et d'innovation continue.",
+];
+
 export default function Home() {
+  const { t } = useLanguage();
   return (
     <div className="flex flex-col items-center w-full bg-white pb-24">
        
@@ -35,19 +48,19 @@ export default function Home() {
       {/* Stats Bar */}
       <div className="w-full max-w-[1200px] bg-[#42a5f5] rounded-xl flex flex-wrap divide-y md:divide-y-0 md:divide-x divide-sky-300 py-6 px-4 mb-16 shadow-md">
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
-          <span className="text-white font-semibold tracking-wider">PAYS</span>
+          <span className="text-white font-semibold tracking-wider">{t('Pays')}</span>
           <span className="text-white font-black text-3xl">30+</span>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
-          <span className="text-white font-semibold tracking-wider">EXPOSANTS</span>
+          <span className="text-white font-semibold tracking-wider">{t('Exposants')}</span>
           <span className="text-white font-black text-3xl">170+</span>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
-          <span className="text-white font-semibold tracking-wider text-center leading-tight">SOCIÉTÉS<br/>INTERNATIONALES</span>
+          <span className="text-white font-semibold tracking-wider text-center leading-tight">{t('SOCIÉTÉS\nINTERNATIONALES').split('\n').map((line) => <React.Fragment key={line}>{line}<br /></React.Fragment>)}</span>
           <span className="text-white font-black text-3xl">16+</span>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
-          <span className="text-white font-semibold tracking-wider">VISITEURS</span>
+          <span className="text-white font-semibold tracking-wider">{t('Visiteurs')}</span>
           <span className="text-white font-black text-3xl">25K+</span>
         </div>
       </div>
@@ -65,15 +78,9 @@ export default function Home() {
       {/* Objectives Section */}
       <div className="w-full max-w-[1200px] mx-auto px-6 py-20 flex flex-col md:flex-row gap-16 items-stretch">
          <div className="flex-1 flex flex-col">
-            <h2 className="text-4xl font-bold text-sky-600 mb-8">Objectif</h2>
+            <h2 className="text-4xl font-bold text-sky-600 mb-8">{t('Objectif')}</h2>
             <ul className="space-y-6 text-sm font-medium leading-relaxed list-disc pl-5 marker:text-black">
-               <li>Coopération entre les opérateurs économiques nationaux et internationaux, afin de stimuler l'échange d'expériences et le développement commun dans les secteurs de la pêche et de l'aquaculture.</li>
-               <li>Identifier et promouvoir les nouvelles technologies révolutionnant la pêche et l'aquaculture, tout en facilitant le transfert de compétences et d'expertise à l'échelle internationale.</li>
-               <li>Mettre en lumière les projets innovants dans les domaines de la pêche maritime et de l'aquaculture, et soutenir l'émergence d'entreprises innovantes, contribuant ainsi à l'évolution du secteur.</li>
-               <li>Engager des discussions stratégiques sur les modalités de coopération et de partenariat avec les pays frères et amis, ainsi qu'avec les organisations internationales et régionales, afin de renforcer les liens dans le domaine de la pêche et de l'aquaculture.</li>
-               <li>Valoriser les capacités et les opportunités d'investissements dans les secteurs de la pêche et de l'aquaculture, en mettant en évidence leur potentiel pour un développement durable et rentable.</li>
-               <li>Offrir une plateforme pour découvrir les dernières innovations et tendances des filières de la pêche et de l'aquaculture, permettant ainsi aux professionnels de se tenir informés des évolutions du marché.</li>
-               <li>Encourager la coopération intersectorielle et les partenariats stratégiques en vue de diversifier et de renforcer les activités liées à la pêche et à l'aquaculture, dans un objectif de durabilité et d'innovation continue.</li>
+               {objectives.map((objective) => <li key={objective}>{t(objective)}</li>)}
             </ul>
          </div>
          <div className="w-full md:w-[350px] bg-[#d9d9d9] shrink-0 min-h-[500px]"></div>
@@ -87,17 +94,17 @@ export default function Home() {
     {/* Scrollable Text Side */}
     <div className="w-full md:w-1/2 flex flex-col z-10">
       <h2 className="text-[2.5rem] font-bold text-black mb-12">
-        L'Algérie
+        {t("L'Algérie")}
       </h2>
 
       <div className="flex flex-col gap-8 pb-[30vh]">
         {algeriaData.map((item, index) => (
           <div key={index} className="flex flex-col gap-1">
             <h3 className="text-[#0ea5e9] text-lg font-semibold">
-              {item.label}
+              {t(item.label)}
             </h3>
             <p className="text-gray-800 text-lg font-medium">
-              {item.value}
+              {t(item.value)}
             </p>
           </div>
         ))}
@@ -107,10 +114,10 @@ export default function Home() {
         {algeriaData.map((item, index) => (
           <div key={`dup-${index}`} className="flex flex-col gap-1">
             <h3 className="text-[#0ea5e9] text-lg font-semibold">
-              {item.label}
+              {t(item.label)}
             </h3>
             <p className="text-gray-800 text-lg font-medium">
-              {item.value}
+              {t(item.value)}
             </p>
           </div>
         ))}
