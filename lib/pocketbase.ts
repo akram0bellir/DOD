@@ -1,3 +1,3 @@
 import PocketBase from 'pocketbase';
 
-export const pb = new PocketBase('http://127.0.0.1:8090'); // Update with your PocketBase URL
+export const pb = new PocketBase('https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com'); // Update with your PocketBase URL

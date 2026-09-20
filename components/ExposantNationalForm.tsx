@@ -9,7 +9,7 @@ import { useLanguage } from '@/lib/i18n';
 /* POCKETBASE                                                        */
 /* ================================================================ */
 
-const pb = new PocketBase('http://127.0.0.1:8090');
+const pb = new PocketBase('https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com');
 
 /* ================================================================ */
 /* SERVICES                                                          */
