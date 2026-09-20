@@ -2,14 +2,40 @@
 
 import { motion } from 'motion/react';
 import { useState } from 'react';
-import PocketBase from 'pocketbase';
+import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
 
 /* ================================================================ */
 /* POCKETBASE                                                        */
 /* ================================================================ */
 
-const pb = new PocketBase('https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com');
+const PB_URL =
+  process.env.NEXT_PUBLIC_PB_URL ??
+  'https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com';
+
+const pb = new PocketBase(PB_URL);
+
+/* PocketBase puts the real reason in error.response.data, keyed by
+   field name. error.message is always "Failed to create record." */
+function describePbError(error: unknown): string {
+  if (error instanceof ClientResponseError) {
+    const fields = error.response?.data as
+      | Record<string, { message?: string }>
+      | undefined;
+
+    if (fields && Object.keys(fields).length > 0) {
+      return Object.entries(fields)
+        .map(([field, info]) => `${field} → ${info?.message ?? 'invalide'}`)
+        .join(' | ');
+    }
+
+    return error.message || `HTTP ${error.status}`;
+  }
+
+  if (error instanceof Error) return error.message;
+
+  return 'Erreur lors de l’envoi de la demande.';
+}
 
 /* ================================================================ */
 /* SERVICES                                                          */
@@ -27,51 +53,15 @@ const CHAIRS = [
 ];
 
 const TABLES = [
-  {
-    id: 't1',
-    name: 'STANDARD desk (80×35×90)',
-    price: 10500,
-  },
-  {
-    id: 't2',
-    name: 'STANDARD desk with panelling',
-    price: 14000,
-  },
-  {
-    id: 't3',
-    name: 'ROUNDED large table (120×90)',
-    price: 14000,
-  },
-  {
-    id: 't4',
-    name: 'SIMPLY large table (120×70)',
-    price: 14000,
-  },
-  {
-    id: 't5',
-    name: 'ATELIER table (140×65×70)',
-    price: 10500,
-  },
-  {
-    id: 't6',
-    name: 'TRIPODE coffee table (Ø60×60)',
-    price: 8500,
-  },
-  {
-    id: 't7',
-    name: 'CLASSIC high table (Ø60)',
-    price: 8500,
-  },
-  {
-    id: 't8',
-    name: 'SCANDINAVE high table (Ø60×100)',
-    price: 8000,
-  },
-  {
-    id: 't9',
-    name: 'RONDE table (Ø80×70)',
-    price: 5000,
-  },
+  { id: 't1', name: 'STANDARD desk (80×35×90)', price: 10500 },
+  { id: 't2', name: 'STANDARD desk with panelling', price: 14000 },
+  { id: 't3', name: 'ROUNDED large table (120×90)', price: 14000 },
+  { id: 't4', name: 'SIMPLY large table (120×70)', price: 14000 },
+  { id: 't5', name: 'ATELIER table (140×65×70)', price: 10500 },
+  { id: 't6', name: 'TRIPODE coffee table (Ø60×60)', price: 8500 },
+  { id: 't7', name: 'CLASSIC high table (Ø60)', price: 8500 },
+  { id: 't8', name: 'SCANDINAVE high table (Ø60×100)', price: 8000 },
+  { id: 't9', name: 'RONDE table (Ø80×70)', price: 5000 },
   {
     id: 't10',
     name: 'SCANDINAVE square glass table (85×85×75)',
@@ -90,26 +80,14 @@ const LOUNGE = [
     name: 'Premium lounge set, 4 seats + coffee table (red)',
     price: 60000,
   },
-  {
-    id: 's2',
-    name: 'Standard lounge chair, black, 1 seat',
-    price: 7000,
-  },
+  { id: 's2', name: 'Standard lounge chair, black, 1 seat', price: 7000 },
   {
     id: 's3',
     name: 'Standard lounge set, black, 4 seats + coffee table',
     price: 25000,
   },
-  {
-    id: 's4',
-    name: 'VIP lounge set, 4 seats + coffee table',
-    price: 50000,
-  },
-  {
-    id: 's5',
-    name: 'STANDARD coffee table',
-    price: 5500,
-  },
+  { id: 's4', name: 'VIP lounge set, 4 seats + coffee table', price: 50000 },
+  { id: 's5', name: 'STANDARD coffee table', price: 5500 },
 ];
 
 const ELECTRONICS = [
@@ -126,53 +104,17 @@ const ELECTRONICS = [
   { id: 'e11', name: 'Carpet (per m²)', price: 1700 },
   { id: 'e12', name: 'Power strips', price: 800 },
   { id: 'e13', name: 'Artificial plants', price: 5500 },
-  {
-    id: 'e14',
-    name: 'A4 literature stand (MB27-M)',
-    price: 16000,
-  },
-  {
-    id: 'e15',
-    name: 'A4 literature stand (MB27-P)',
-    price: 8000,
-  },
-  {
-    id: 'e16',
-    name: 'A4 literature stand (MB27-PM)',
-    price: 6500,
-  },
-  {
-    id: 'e17',
-    name: 'Aluminium storage door',
-    price: 16000,
-  },
+  { id: 'e14', name: 'A4 literature stand (MB27-M)', price: 16000 },
+  { id: 'e15', name: 'A4 literature stand (MB27-P)', price: 8000 },
+  { id: 'e16', name: 'A4 literature stand (MB27-PM)', price: 6500 },
+  { id: 'e17', name: 'Aluminium storage door', price: 16000 },
   { id: 'e18', name: 'Lectern', price: 16000 },
   { id: 'e19', name: '90L refrigerator', price: 10500 },
-  {
-    id: 'e20',
-    name: '3-spot electrical strip',
-    price: 3200,
-  },
-  {
-    id: 'e21',
-    name: 'Floor-standing TV mount',
-    price: 24000,
-  },
-  {
-    id: 'e22',
-    name: 'Display case MB26-BI',
-    price: 21000,
-  },
-  {
-    id: 'e23',
-    name: 'Display case MB26-CO',
-    price: 17000,
-  },
-  {
-    id: 'e24',
-    name: 'Display case MB26-UN',
-    price: 17000,
-  },
+  { id: 'e20', name: '3-spot electrical strip', price: 3200 },
+  { id: 'e21', name: 'Floor-standing TV mount', price: 24000 },
+  { id: 'e22', name: 'Display case MB26-BI', price: 21000 },
+  { id: 'e23', name: 'Display case MB26-CO', price: 17000 },
+  { id: 'e24', name: 'Display case MB26-UN', price: 17000 },
 ];
 
 /* ================================================================ */
@@ -197,9 +139,6 @@ type ServiceCategory =
 
 export default function ExposantNationalForm() {
   const { t } = useLanguage();
-  /* -------------------------------------------------------------- */
-  /* ACTIVE SERVICE CATEGORY                                        */
-  /* -------------------------------------------------------------- */
 
   const [activeService, setActiveService] =
     useState<ServiceCategory>('Chaise');
@@ -212,11 +151,9 @@ export default function ExposantNationalForm() {
   const [pays, setPays] = useState('');
   const [secteurActivite, setSecteurActivite] = useState('');
   const [personneContact, setPersonneContact] = useState('');
-  const [registreCommerce, setRegistreCommerce] =
-    useState('');
+  const [registreCommerce, setRegistreCommerce] = useState('');
   const [tel, setTel] = useState('');
-  const [identifiantFiscal, setIdentifiantFiscal] =
-    useState('');
+  const [identifiantFiscal, setIdentifiantFiscal] = useState('');
   const [fax, setFax] = useState('');
   const [adresse, setAdresse] = useState('');
   const [siteWeb, setSiteWeb] = useState('');
@@ -230,20 +167,16 @@ export default function ExposantNationalForm() {
 
   const [choixStand, setChoixStand] = useState('');
   const [superficie, setSuperficie] = useState('');
-  const [majorationFacades, setMajorationFacades] =
-    useState('');
-  const [publiciteCatalogue, setPubliciteCatalogue] =
-    useState('');
+  const [majorationFacades, setMajorationFacades] = useState('');
+  const [publiciteCatalogue, setPubliciteCatalogue] = useState('');
 
   /* -------------------------------------------------------------- */
   /* SERVICES SELECTION                                             */
-  /*                                                              */
-  /* Object format:                                                 */
-  /* { c1: 2, c4: 1, t3: 4 }                                      */
   /* -------------------------------------------------------------- */
 
-  const [selectedServices, setSelectedServices] =
-    useState<Record<string, number>>({});
+  const [selectedServices, setSelectedServices] = useState<
+    Record<string, number>
+  >({});
 
   /* -------------------------------------------------------------- */
   /* SIGNALETIQUE                                                    */
@@ -252,18 +185,23 @@ export default function ExposantNationalForm() {
   const [nomEnseigne, setNomEnseigne] = useState('');
   const [nombreBadges, setNombreBadges] = useState('');
   const [macarons, setMacarons] = useState('');
-  const [hostessSelected, setHostessSelected] =
-    useState(false);
+  const [hostessSelected, setHostessSelected] = useState(false);
 
   /* -------------------------------------------------------------- */
   /* CONDITIONS                                                      */
   /* -------------------------------------------------------------- */
 
   const [acceptTva, setAcceptTva] = useState(false);
-  const [acceptAnnulation, setAcceptAnnulation] =
-    useState(false);
-  const [acceptConditions, setAcceptConditions] =
-    useState(false);
+  const [acceptAnnulation, setAcceptAnnulation] = useState(false);
+  const [acceptConditions, setAcceptConditions] = useState(false);
+
+  /* -------------------------------------------------------------- */
+  /* SUBMISSION STATE                                                */
+  /* -------------------------------------------------------------- */
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
 
   /* ================================================================ */
   /* STAND CALCULATIONS                                               */
@@ -272,26 +210,14 @@ export default function ExposantNationalForm() {
   const droitsInscription = 20000;
 
   const prixParM2 = Number(choixStand || 0);
-
   const surfaceM2 = Number(superficie || 0);
-
   const prixStand = prixParM2 * surfaceM2;
 
   /* Electricity = surface × 4 days × 20 DA */
-
   const electricite = surfaceM2 * 4 * 20;
 
-  /* Additional facade */
-
-  const majoration = Number(
-    majorationFacades || 0
-  );
-
-  /* Catalogue advertising */
-
-  const publicite = Number(
-    publiciteCatalogue || 0
-  );
+  const majoration = Number(majorationFacades || 0);
+  const publicite = Number(publiciteCatalogue || 0);
 
   /* ================================================================ */
   /* CURRENT SERVICE LIST                                             */
@@ -301,16 +227,12 @@ export default function ExposantNationalForm() {
     switch (activeService) {
       case 'Chaise':
         return CHAIRS;
-
       case 'Table':
         return TABLES;
-
       case 'Salon':
         return LOUNGE;
-
       case 'Electronique et accessoire':
         return ELECTRONICS;
-
       default:
         return [];
     }
@@ -318,48 +240,23 @@ export default function ExposantNationalForm() {
 
   const currentServices = getCurrentServices();
 
-  /* ================================================================ */
-  /* SERVICE SELECTION                                                */
-  /* ================================================================ */
-
   const toggleService = (id: string) => {
     setSelectedServices((current) => {
       const next = { ...current };
-
-      if (next[id]) {
-        delete next[id];
-      } else {
-        next[id] = 1;
-      }
-
+      if (next[id]) delete next[id];
+      else next[id] = 1;
       return next;
     });
   };
 
-  /* ================================================================ */
-  /* SERVICE QUANTITY                                                 */
-  /* ================================================================ */
-
-  const changeQuantity = (
-    id: string,
-    quantity: number
-  ) => {
+  const changeQuantity = (id: string, quantity: number) => {
     setSelectedServices((current) => {
       const next = { ...current };
-
-      if (quantity <= 0) {
-        delete next[id];
-      } else {
-        next[id] = quantity;
-      }
-
+      if (quantity <= 0) delete next[id];
+      else next[id] = quantity;
       return next;
     });
   };
-
-  /* ================================================================ */
-  /* ALL SERVICES                                                      */
-  /* ================================================================ */
 
   const allServices: Service[] = [
     ...CHAIRS,
@@ -368,37 +265,17 @@ export default function ExposantNationalForm() {
     ...ELECTRONICS,
   ];
 
-  /* ================================================================ */
-  /* SELECTED SERVICES                                                 */
-  /* ================================================================ */
+  const selectedAdditionalServices = allServices
+    .filter((service) => selectedServices[service.id])
+    .map((service) => ({
+      ...service,
+      qty: selectedServices[service.id],
+    }));
 
-  const selectedAdditionalServices =
-    allServices
-      .filter(
-        (service) =>
-          selectedServices[service.id]
-      )
-      .map((service) => ({
-        ...service,
-        qty: selectedServices[service.id],
-      }));
-
-  /* ================================================================ */
-  /* SERVICES TOTAL                                                     */
-  /* ================================================================ */
-
-  const totalAdditionalServices =
-    selectedAdditionalServices.reduce(
-      (total, service) =>
-        total +
-        service.price *
-          service.qty,
-      0
-    );
-
-  /* ================================================================ */
-  /* TOTAL HT                                                           */
-  /* ================================================================ */
+  const totalAdditionalServices = selectedAdditionalServices.reduce(
+    (total, service) => total + service.price * service.qty,
+    0
+  );
 
   const totalHT =
     droitsInscription +
@@ -408,79 +285,89 @@ export default function ExposantNationalForm() {
     publicite +
     totalAdditionalServices;
 
-  /* ================================================================ */
-  /* TVA                                                                */
-  /* ================================================================ */
-
   const tva = totalHT * 0.19;
-
-  /* ================================================================ */
-  /* TOTAL TTC                                                          */
-  /* ================================================================ */
-
   const totalTTC = totalHT + tva;
 
   /* ================================================================ */
   /* AUTOMATIC BADGES                                                   */
   /* ================================================================ */
 
-  /*
-   * You can change this rule later if the official
-   * exhibition rules specify another calculation.
-   *
-   * Currently:
-   * 1 badge per 9 m², minimum 2.
-   */
-
   const calculatedBadges =
-    surfaceM2 > 0
-      ? Math.max(
-          2,
-          Math.ceil(surfaceM2 / 9)
-        )
-      : 0;
+    surfaceM2 > 0 ? Math.max(2, Math.ceil(surfaceM2 / 9)) : 0;
 
   const calculatedMacarons =
-    surfaceM2 > 0
-      ? Math.max(
-          1,
-          Math.ceil(surfaceM2 / 18)
-        )
-      : 0;
+    surfaceM2 > 0 ? Math.max(1, Math.ceil(surfaceM2 / 18)) : 0;
+
+  /* ================================================================ */
+  /* VALIDATION                                                         */
+  /*                                                                    */
+  /* The submit button is outside the <form> validation flow, so the    */
+  /* required fields are checked here. Without this, a blank form is    */
+  /* sent to PocketBase and every required column fails at once.        */
+  /* ================================================================ */
+
+  const requiredFields: Array<[string, string]> = [
+    ['Raison Sociale', raisonSociale],
+    ['Pays', pays],
+    ["Secteur d'activité", secteurActivite],
+    ['Personne à contacter', personneContact],
+    ['Registre de commerce', registreCommerce],
+    ['Tél', tel],
+    ['Identifiant fiscal', identifiantFiscal],
+    ['Adresse', adresse],
+    ['Ville', ville],
+    ['Mobile', mobile],
+    ['Email', email],
+    ['Stand type', choixStand],
+    ['Superficie', superficie],
+  ];
+
+  const missing = requiredFields
+    .filter(([, value]) => value.trim() === '')
+    .map(([label]) => label);
+
+  const termsAccepted = acceptTva && acceptAnnulation && acceptConditions;
+
+  const canSubmit = missing.length === 0 && termsAccepted && !loading;
 
   /* ================================================================ */
   /* SUBMIT                                                             */
   /* ================================================================ */
 
   const handleSubmit = async () => {
+    setMessage('');
+    setIsSuccess(false);
+
+    if (missing.length > 0) {
+      setMessage(`Champs obligatoires manquants : ${missing.join(', ')}`);
+      return;
+    }
+
+    if (!termsAccepted) {
+      setMessage('Veuillez accepter les trois conditions.');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      /* ------------------------------------------------------------ */
-      /* SELECTED SERVICES FOR POCKETBASE                             */
-      /* ------------------------------------------------------------ */
+      const additionalServices = selectedAdditionalServices.map(
+        (service) => ({
+          id: service.id,
+          name: service.name,
+          price: service.price,
+          qty: service.qty,
+        })
+      );
 
-      const additionalServices =
-        selectedAdditionalServices.map(
-          (service) => ({
-            id: service.id,
-            name: service.name,
-            price: service.price,
-            qty: service.qty,
-          })
-        );
-
-      /* ------------------------------------------------------------ */
-      /* DATA                                                          */
-      /* ------------------------------------------------------------ */
-
-      const data = {
-        /* DEMANDE */
-
+      /* Text columns — empty optional values are dropped rather than
+         sent as '', which non-text field types reject. */
+      const textValues: Record<string, string> = {
         company_name: raisonSociale,
         country: pays,
         sector_activity: secteurActivite,
         contact_person: personneContact,
-        company_registration_no:
-          registreCommerce,
+        company_registration_no: registreCommerce,
         phone: tel,
         tax_id_no: identifiantFiscal,
         fax: fax,
@@ -489,93 +376,65 @@ export default function ExposantNationalForm() {
         city: ville,
         mobile: mobile,
         email: email,
-
-        /* STAND */
-
-        stand_type: choixStand,
-        surface: superficie,
-        facade: majorationFacades,
-        catalogue: publiciteCatalogue,
-
-        /* SERVICES */
-
-        ADDITIONAL_SERVICES:
-          JSON.stringify(
-            additionalServices
-          ),
-
-        /* SIGNALETIQUE */
-
-        fascia_company_name:
-          nomEnseigne,
-
-        exhibitor_badges:
-          nombreBadges === ''
-            ? calculatedBadges
-            : Number(nombreBadges),
-
-        access_passes:
-          macarons === ''
-            ? calculatedMacarons
-            : Number(macarons),
-
-        hostess_selected:
-          hostessSelected,
-
-        /* CONDITIONS */
-
-        terms_prices_excl_tax:
-          acceptTva,
-
-        terms_no_refund:
-          acceptAnnulation,
-
-        terms_general_conditions:
-          acceptConditions,
-
-        /* TOTAL */
-
-        total_ht: totalHT,
-
+        fascia_company_name: nomEnseigne,
         NOTE: '',
-
         STATUS: 'received',
       };
 
-      console.log(
-        'Sending to PocketBase:',
-        data
+      const data: Record<string, unknown> = Object.fromEntries(
+        Object.entries(textValues).filter(([, v]) => v !== '')
       );
 
-      /* ------------------------------------------------------------ */
-      /* CREATE RECORD                                                 */
-      /* ------------------------------------------------------------ */
+      /* Selects yield strings. These columns are numeric, so they are
+         coerced here; the unpicked optional ones stay out entirely. */
+      data.stand_type = prixParM2;
+      data.surface = surfaceM2;
 
-      const record =
-        await pb
-          .collection(
-            'Exposant_national'
-          )
-          .create(data);
+      if (majorationFacades !== '') data.facade = majoration;
+      if (publiciteCatalogue !== '') data.catalogue = publicite;
 
-      console.log(
-        'Created record:',
-        record
-      );
+      /* Sent as a real array for a `json` column. If ADDITIONAL_SERVICES
+         is a plain `text` column instead, wrap it:
+         JSON.stringify(additionalServices) */
+      data.ADDITIONAL_SERVICES = additionalServices;
 
-      alert(
-        t('Demande envoyée avec succès.')
-      );
+      data.exhibitor_badges =
+        nombreBadges === '' ? calculatedBadges : Number(nombreBadges);
 
+      data.access_passes =
+        macarons === '' ? calculatedMacarons : Number(macarons);
+
+      data.hostess_selected = hostessSelected;
+
+      data.terms_prices_excl_tax = acceptTva;
+      data.terms_no_refund = acceptAnnulation;
+      data.terms_general_conditions = acceptConditions;
+
+      data.total_ht = totalHT;
+
+      console.log('Sending to PocketBase:', data);
+
+      const record = await pb.collection('Exposant_national').create(data);
+
+      console.log('Created record:', record.id, record);
+
+      setIsSuccess(true);
+      setMessage(t('Demande envoyée avec succès.'));
     } catch (error) {
-      console.error(
-        'PocketBase error:',
-        error
-      );
+      console.error('PocketBase error:', error);
 
-      alert(
-        t('Erreur lors de l’envoi de la demande.')
-      );
+      if (error instanceof ClientResponseError) {
+        console.error('status:', error.status);
+        console.error(
+          'field errors:',
+          JSON.stringify(error.response?.data, null, 2)
+        );
+      }
+
+      setIsSuccess(false);
+      setMessage(describePbError(error));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -634,12 +493,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={raisonSociale}
-              onChange={(e) =>
-                setRaisonSociale(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setRaisonSociale(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -653,10 +509,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={pays}
-              onChange={(e) =>
-                setPays(e.target.value)
-              }
+              onChange={(e) => setPays(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -670,12 +525,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={secteurActivite}
-              onChange={(e) =>
-                setSecteurActivite(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setSecteurActivite(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -689,12 +541,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={personneContact}
-              onChange={(e) =>
-                setPersonneContact(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setPersonneContact(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -708,12 +557,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={registreCommerce}
-              onChange={(e) =>
-                setRegistreCommerce(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setRegistreCommerce(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -727,10 +573,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={tel}
-              onChange={(e) =>
-                setTel(e.target.value)
-              }
+              onChange={(e) => setTel(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -744,12 +589,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={identifiantFiscal}
-              onChange={(e) =>
-                setIdentifiantFiscal(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setIdentifiantFiscal(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -764,9 +606,7 @@ export default function ExposantNationalForm() {
             <input
               type="text"
               value={fax}
-              onChange={(e) =>
-                setFax(e.target.value)
-              }
+              onChange={(e) => setFax(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -780,12 +620,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={adresse}
-              onChange={(e) =>
-                setAdresse(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setAdresse(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -799,12 +636,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              placeholder="https://..."
               value={siteWeb}
-              onChange={(e) =>
-                setSiteWeb(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setSiteWeb(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -818,12 +652,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={ville}
-              onChange={(e) =>
-                setVille(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setVille(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -837,12 +668,9 @@ export default function ExposantNationalForm() {
 
             <input
               type="text"
+              required
               value={mobile}
-              onChange={(e) =>
-                setMobile(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setMobile(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -851,17 +679,14 @@ export default function ExposantNationalForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
-              {t('Email')} **
+              {t('Email')} *
             </label>
 
             <input
               type="email"
+              required
               value={email}
-              onChange={(e) =>
-                setEmail(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setEmail(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -871,7 +696,7 @@ export default function ExposantNationalForm() {
         <div className="mt-4 flex items-center gap-2">
 
           <span className="text-[#0ea5e9] text-2xl font-bold">
-              {t("Droits d'inscription:")}
+            {t("Droits d'inscription:")}
           </span>
 
           <span className="text-black text-2xl font-bold">
@@ -904,30 +729,19 @@ export default function ExposantNationalForm() {
 
             <select
               value={choixStand}
-              onChange={(e) =>
-                setChoixStand(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setChoixStand(e.target.value)}
               className={inputClass}
             >
-
-              <option value="">
-                {t('Sélectionnez un stand')}
-              </option>
-
+              <option value="">{t('Sélectionnez un stand')}</option>
               <option value="17000">
                 {t('Stand aménagé (17.000 DA/m²)')}
               </option>
-
               <option value="12000">
                 {t('Stand non aménagé (12.000 DA/m²)')}
               </option>
-
               <option value="10000">
                 {t('Emplacement découvert (10.000 DA/m²)')}
               </option>
-
             </select>
 
           </div>
@@ -942,78 +756,25 @@ export default function ExposantNationalForm() {
 
             <select
               value={superficie}
-              onChange={(e) =>
-                setSuperficie(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setSuperficie(e.target.value)}
               className={inputClass}
             >
-
-              <option value="">
-                {t('Sélectionnez la superficie')}
-              </option>
-
-              <option value="12">
-                12 m²
-              </option>
-
-              <option value="18">
-                18 m²
-              </option>
-
-              <option value="24">
-                24 m²
-              </option>
-
-              <option value="36">
-                36 m²
-              </option>
-
-              <option value="48">
-                48 m²
-              </option>
-
-              <option value="54">
-                54 m²
-              </option>
-
-              <option value="60">
-                60 m²
-              </option>
-
-              <option value="72">
-                72 m²
-              </option>
-
-              <option value="80">
-                80 m²
-              </option>
-
-              <option value="100">
-                100 m²
-              </option>
-
-              <option value="120">
-                120 m²
-              </option>
-
-              <option value="150">
-                150 m²
-              </option>
-
-              <option value="200">
-                200 m²
-              </option>
-
-              <option value="250">
-                250 m²
-              </option>
-
-              <option value="300">
-                300 m²
-              </option>
-
+              <option value="">{t('Sélectionnez la superficie')}</option>
+              <option value="12">12 m²</option>
+              <option value="18">18 m²</option>
+              <option value="24">24 m²</option>
+              <option value="36">36 m²</option>
+              <option value="48">48 m²</option>
+              <option value="54">54 m²</option>
+              <option value="60">60 m²</option>
+              <option value="72">72 m²</option>
+              <option value="80">80 m²</option>
+              <option value="100">100 m²</option>
+              <option value="120">120 m²</option>
+              <option value="150">150 m²</option>
+              <option value="200">200 m²</option>
+              <option value="250">250 m²</option>
+              <option value="300">300 m²</option>
             </select>
 
           </div>
@@ -1023,35 +784,24 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              {t('Majoration façades supplémentaires (forfait)')} *
+              {t('Majoration façades supplémentaires (forfait)')}
             </label>
 
             <select
               value={majorationFacades}
-              onChange={(e) =>
-                setMajorationFacades(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setMajorationFacades(e.target.value)}
               className={inputClass}
             >
-
-              <option value="">
-                {t('Sélectionnez une option')}
-              </option>
-
+              <option value="">{t('Sélectionnez une option')}</option>
               <option value="17000">
                 Emplacement à 02 façades 17.000 DA
               </option>
-
               <option value="22000">
                 Emplacement à 03 façades 22.000 DA
               </option>
-
               <option value="32000">
                 Emplacement à 04 façades 32.000 DA
               </option>
-
             </select>
 
           </div>
@@ -1061,39 +811,27 @@ export default function ExposantNationalForm() {
           <div className="flex flex-col gap-1.5">
 
             <label className="text-sm font-bold text-black">
-              {t('Publicité sur le catalogue')} *
+              {t('Publicité sur le catalogue')}
             </label>
 
             <select
               value={publiciteCatalogue}
-              onChange={(e) =>
-                setPubliciteCatalogue(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setPubliciteCatalogue(e.target.value)}
               className={inputClass}
             >
-
-              <option value="">
-                Sélectionnez une option
-              </option>
-
+              <option value="">Sélectionnez une option</option>
               <option value="120000">
                 4ème page de couverture 120.000 DA
               </option>
-
               <option value="100000">
                 3ème page de couverture 100.000 DA
               </option>
-
               <option value="80000">
                 2ème page de couverture 80.000 DA
               </option>
-
               <option value="32000">
                 1/2 page intérieure couleur 32.000 DA
               </option>
-
             </select>
 
           </div>
@@ -1109,63 +847,39 @@ export default function ExposantNationalForm() {
         <div className="flex flex-col gap-5 mt-2">
 
           <div className="flex items-center justify-between">
-
             <span className="text-[#0ea5e9] text-2xl font-bold">
               {t('Prix stand :')}
             </span>
-
             <span className="text-black text-2xl font-bold">
-              {prixStand.toLocaleString(
-                'fr-DZ'
-              )}{' '}
-              DA
+              {prixStand.toLocaleString('fr-DZ')} DA
             </span>
-
           </div>
 
           <div className="flex items-center justify-between">
-
             <span className="text-[#0ea5e9] text-2xl font-bold">
               {t('Électricité :')}
             </span>
-
             <span className="text-black text-2xl font-bold">
-              {electricite.toLocaleString(
-                'fr-DZ'
-              )}{' '}
-              DA
+              {electricite.toLocaleString('fr-DZ')} DA
             </span>
-
           </div>
 
           <div className="flex items-center justify-between">
-
             <span className="text-[#0ea5e9] text-2xl font-bold">
               {t('Façades :')}
             </span>
-
             <span className="text-black text-2xl font-bold">
-              {majoration.toLocaleString(
-                'fr-DZ'
-              )}{' '}
-              DA
+              {majoration.toLocaleString('fr-DZ')} DA
             </span>
-
           </div>
 
           <div className="flex items-center justify-between">
-
             <span className="text-[#0ea5e9] text-2xl font-bold">
               {t('Publicité catalogue :')}
             </span>
-
             <span className="text-black text-2xl font-bold">
-              {publicite.toLocaleString(
-                'fr-DZ'
-              )}{' '}
-              DA
+              {publicite.toLocaleString('fr-DZ')} DA
             </span>
-
           </div>
 
         </div>
@@ -1193,18 +907,13 @@ export default function ExposantNationalForm() {
             'Electronique et accessoire',
           ].map((service) => {
 
-            const category =
-              service as ServiceCategory;
+            const category = service as ServiceCategory;
 
             return (
               <button
                 key={service}
                 type="button"
-                onClick={() =>
-                  setActiveService(
-                    category
-                  )
-                }
+                onClick={() => setActiveService(category)}
                 className={`py-3 px-6 rounded-md transition-colors ${
                   activeService === category
                     ? 'bg-[#38bdf8] text-white'
@@ -1222,157 +931,110 @@ export default function ExposantNationalForm() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
 
-          {currentServices.map(
-            (service) => {
+          {currentServices.map((service) => {
 
-              const selected =
-                !!selectedServices[
-                  service.id
-                ];
+            const selected = !!selectedServices[service.id];
+            const quantity = selectedServices[service.id] || 0;
 
-              const quantity =
-                selectedServices[
-                  service.id
-                ] || 0;
+            return (
+              <motion.div
+                key={service.id}
+                whileHover={{ scale: 1.02 }}
+                className={`border rounded-xl p-6 flex items-center justify-between transition-colors shadow-sm ${
+                  selected
+                    ? 'border-black bg-black'
+                    : 'border-gray-300 bg-[#f8fafc] hover:bg-gray-50'
+                }`}
+              >
 
-              return (
-                <motion.div
-                  key={service.id}
-                  whileHover={{
-                    scale: 1.02,
-                  }}
-                  className={`border rounded-xl p-6 flex items-center justify-between transition-colors shadow-sm ${
-                    selected
-                      ? 'border-black bg-black'
-                      : 'border-gray-300 bg-[#f8fafc] hover:bg-gray-50'
-                  }`}
+                {/* SERVICE INFO */}
+
+                <div
+                  className="flex flex-col gap-2 cursor-pointer flex-1 pr-4"
+                  onClick={() => toggleService(service.id)}
                 >
-
-                  {/* SERVICE INFO */}
-
-                  <div
-                    className="flex flex-col gap-2 cursor-pointer flex-1 pr-4"
-                    onClick={() =>
-                      toggleService(
-                        service.id
-                      )
-                    }
+                  <span
+                    className={`font-bold text-sm ${
+                      selected ? 'text-[#38bdf8]' : 'text-black'
+                    }`}
                   >
+                    {service.name}
+                  </span>
 
-                    <span
-                      className={`font-bold text-sm ${
-                        selected
-                          ? 'text-[#38bdf8]'
-                          : 'text-black'
-                      }`}
-                    >
-                      {service.name}
-                    </span>
+                  <span
+                    className={`text-sm ${
+                      selected ? 'text-gray-400' : 'text-gray-600'
+                    }`}
+                  >
+                    {service.price.toLocaleString('fr-DZ')} DA HT /{' '}
+                    {t('Événement')}
+                  </span>
+                </div>
 
-                    <span
-                      className={`text-sm ${
-                        selected
-                          ? 'text-gray-400'
-                          : 'text-gray-600'
-                      }`}
-                    >
-                      {service.price.toLocaleString(
-                        'fr-DZ'
-                      )}{' '}
-                      DA HT / {t('Événement')}
-                    </span>
+                {/* RIGHT SIDE */}
 
-                  </div>
+                <div className="flex items-center gap-3 shrink-0">
 
-                  {/* RIGHT SIDE */}
-
-                  <div className="flex items-center gap-3 shrink-0">
-
-                    {/* SELECT */}
-
-                    <button
-                      type="button"
-                      aria-label={`Sélectionner ${service.name}`}
-                      onClick={() =>
-                        toggleService(
-                          service.id
-                        )
-                      }
-                      className={`w-6 h-6 rounded-full border-4 flex items-center justify-center ${
-                        selected
-                          ? 'border-[#38bdf8] bg-black'
-                          : 'border-gray-300 bg-black'
-                      }`}
-                    >
-
-                      {selected && (
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#38bdf8]" />
-                      )}
-
-                    </button>
-
-                    {/* QUANTITY */}
-
+                  <button
+                    type="button"
+                    aria-label={`Sélectionner ${service.name}`}
+                    onClick={() => toggleService(service.id)}
+                    className={`w-6 h-6 rounded-full border-4 flex items-center justify-center ${
+                      selected
+                        ? 'border-[#38bdf8] bg-black'
+                        : 'border-gray-300 bg-black'
+                    }`}
+                  >
                     {selected && (
-                      <div className="flex items-center gap-1">
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            changeQuantity(
-                              service.id,
-                              quantity - 1
-                            )
-                          }
-                          className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
-                        >
-                          −
-                        </button>
-
-                        <span className="w-8 text-center text-white font-bold">
-                          {quantity}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            changeQuantity(
-                              service.id,
-                              quantity + 1
-                            )
-                          }
-                          className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
-                        >
-                          +
-                        </button>
-
-                      </div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#38bdf8]" />
                     )}
+                  </button>
 
-                  </div>
+                  {selected && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          changeQuantity(service.id, quantity - 1)
+                        }
+                        className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
+                      >
+                        −
+                      </button>
 
-                </motion.div>
-              );
-            }
-          )}
+                      <span className="w-8 text-center text-white font-bold">
+                        {quantity}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          changeQuantity(service.id, quantity + 1)
+                        }
+                        className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+
+              </motion.div>
+            );
+          })}
 
         </div>
 
         {/* SERVICES TOTAL */}
 
         <div className="border-t border-gray-200 pt-6 flex justify-between items-center">
-
           <span className="text-xl font-bold text-black">
             {t('Services supplémentaires :')}
           </span>
-
           <span className="text-2xl font-black text-[#0ea5e9]">
-            {totalAdditionalServices.toLocaleString(
-              'fr-DZ'
-            )}{' '}
-            DA HT
+            {totalAdditionalServices.toLocaleString('fr-DZ')} DA HT
           </span>
-
         </div>
 
       </div>
@@ -1399,11 +1061,7 @@ export default function ExposantNationalForm() {
             type="text"
             maxLength={20}
             value={nomEnseigne}
-            onChange={(e) =>
-              setNomEnseigne(
-                e.target.value
-              )
-            }
+            onChange={(e) => setNomEnseigne(e.target.value)}
             className={inputClass}
           />
 
@@ -1418,54 +1076,46 @@ export default function ExposantNationalForm() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
 
           <div className="flex flex-col gap-1.5">
-
             <label className="text-sm font-bold text-black">
               {t('Nombre de badges exposants (calculé automatiquement)')}
             </label>
 
             <input
               type="text"
-              value={
-                nombreBadges === ''
-                  ? calculatedBadges
-                  : nombreBadges
-              }
-              onChange={(e) =>
-                setNombreBadges(
-                  e.target.value
-                )
-              }
+              value={nombreBadges === '' ? calculatedBadges : nombreBadges}
+              onChange={(e) => setNombreBadges(e.target.value)}
               className={inputClass}
               readOnly
             />
-
           </div>
 
           <div className="flex flex-col gap-1.5">
-
             <label className="text-sm font-bold text-black">
               {t('Macarons (calculé automatiquement)')}
             </label>
 
             <input
               type="text"
-              value={
-                macarons === ''
-                  ? calculatedMacarons
-                  : macarons
-              }
-              onChange={(e) =>
-                setMacarons(
-                  e.target.value
-                )
-              }
+              value={macarons === '' ? calculatedMacarons : macarons}
+              onChange={(e) => setMacarons(e.target.value)}
               className={inputClass}
               readOnly
             />
-
           </div>
 
         </div>
+
+        {/* HOTESSE — previously sent as always false with no control */}
+
+        <label className="flex items-center gap-3 cursor-pointer w-fit text-sm font-bold text-black">
+          <input
+            type="checkbox"
+            checked={hostessSelected}
+            onChange={(e) => setHostessSelected(e.target.checked)}
+            className="w-5 h-5 accent-[#0ea5e9] rounded-sm"
+          />
+          {t('Je souhaite réserver une hôtesse')}
+        </label>
 
       </div>
 
@@ -1501,61 +1151,34 @@ export default function ExposantNationalForm() {
 
         <div className="flex flex-col gap-4 text-white text-sm font-bold mt-2">
 
-          {/* TVA */}
-
           <label className="flex items-center gap-3 cursor-pointer w-fit">
-
             <input
               type="checkbox"
               checked={acceptTva}
-              onChange={(e) =>
-                setAcceptTva(
-                  e.target.checked
-                )
-              }
+              onChange={(e) => setAcceptTva(e.target.checked)}
               className="w-5 h-5 accent-white rounded-sm"
             />
-
             {t('Les prix sont donnés en hors-taxe, il y a lieu de compter en sus 19 % de TVA.')}
-
           </label>
 
-          {/* ANNULATION */}
-
           <label className="flex items-center gap-3 cursor-pointer w-fit">
-
             <input
               type="checkbox"
               checked={acceptAnnulation}
-              onChange={(e) =>
-                setAcceptAnnulation(
-                  e.target.checked
-                )
-              }
+              onChange={(e) => setAcceptAnnulation(e.target.checked)}
               className="w-5 h-5 accent-white rounded-sm"
             />
-
             {t("Au cas d'annulation de l'exposant, ce dernier ne peut prétendre à aucun remboursement.")}
-
           </label>
 
-          {/* CONDITIONS */}
-
           <label className="flex items-center gap-3 cursor-pointer w-fit">
-
             <input
               type="checkbox"
               checked={acceptConditions}
-              onChange={(e) =>
-                setAcceptConditions(
-                  e.target.checked
-                )
-              }
+              onChange={(e) => setAcceptConditions(e.target.checked)}
               className="w-5 h-5 accent-white rounded-sm"
             />
-
             {t("J'accepte les conditions générales")}
-
           </label>
 
         </div>
@@ -1563,9 +1186,7 @@ export default function ExposantNationalForm() {
         {/* CONFIRMATION */}
 
         <p className="text-gray-400 text-sm leading-relaxed mt-2">
-
           {t("Le soussigné confirme sa participation au 10ème Salon International de la Pêche et de l'Aquaculture qui se tiendra Du 06 Au 09 novembre 2025 au Centre de Conventions d'Oran et déclare avoir pris connaissance du règlement général du salon et s'engage à en respecter toutes les clauses et les conditions.")}
-
         </p>
 
         {/* ======================================================== */}
@@ -1574,74 +1195,58 @@ export default function ExposantNationalForm() {
 
         <div className="w-full bg-white rounded-xl mt-6 p-8 md:p-12 flex flex-col gap-8 shadow-lg">
 
-          {/* TOTAL HT */}
-
           <div className="flex justify-between items-center">
-
             <span className="text-lg font-bold text-gray-600">
               {t('Total HT')}
             </span>
-
             <span className="text-xl font-black text-black">
-              {totalHT.toLocaleString(
-                'fr-DZ'
-              )}{' '}
-              DA
+              {totalHT.toLocaleString('fr-DZ')} DA
             </span>
-
           </div>
 
-          {/* TVA */}
-
           <div className="flex justify-between items-center">
-
             <span className="text-lg font-bold text-gray-600">
               {t('TVA (19%)')}
             </span>
-
             <span className="text-xl font-black text-black">
-              {tva.toLocaleString(
-                'fr-DZ'
-              )}{' '}
-              DA
+              {tva.toLocaleString('fr-DZ')} DA
             </span>
-
           </div>
 
           <div className="border-t border-gray-200" />
 
-          {/* TTC */}
-
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
 
             <div className="flex flex-col gap-2 text-center md:text-left">
-
               <span className="text-2xl font-black text-black uppercase tracking-wide">
                 {t('Total à payer')}
               </span>
-
               <span className="text-base font-bold text-gray-500">
                 {t('TVA (19%) incluse')}
               </span>
-
             </div>
 
             <div className="flex flex-col items-center md:items-end">
-
               <span className="text-4xl font-black text-[#0ea5e9]">
-
-                {totalTTC.toLocaleString(
-                  'fr-DZ'
-                )}{' '}
-                DA TTC
-
+                {totalTTC.toLocaleString('fr-DZ')} DA TTC
               </span>
-
             </div>
 
           </div>
 
         </div>
+
+        {/* MESSAGE */}
+
+        {message && (
+          <p
+            className={`text-sm font-semibold ${
+              isSuccess ? 'text-green-400' : 'text-red-400'
+            }`}
+          >
+            {message}
+          </p>
+        )}
 
         {/* ======================================================== */}
         {/* SUBMIT                                                     */}
@@ -1650,9 +1255,10 @@ export default function ExposantNationalForm() {
         <button
           type="button"
           onClick={handleSubmit}
-          className="bg-[#0ea5e9] text-white font-bold h-[88px] rounded-xl text-2xl hover:bg-[#0284c7] transition-colors"
+          disabled={!canSubmit}
+          className="bg-[#0ea5e9] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold h-[88px] rounded-xl text-2xl hover:bg-[#0284c7] transition-colors"
         >
-          {t('Soumettre la demande')}
+          {loading ? t('ENVOI...') : t('Soumettre la demande')}
         </button>
 
       </div>

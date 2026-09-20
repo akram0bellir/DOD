@@ -1,13 +1,50 @@
 'use client';
 
 import { useState } from 'react';
-import PocketBase from 'pocketbase';
+import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
 
-const pb = new PocketBase('https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com');
+const PB_URL =
+  process.env.NEXT_PUBLIC_PB_URL ??
+  'https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com';
+
+const pb = new PocketBase(PB_URL);
+
+// PocketBase returns field-level errors in error.response.data as
+// { fieldName: { code: string, message: string } }. Surfacing them is the
+// only way to know which field the server rejected.
+function describePbError(error: unknown): string {
+  if (error instanceof ClientResponseError) {
+    const fields = error.response?.data as
+      | Record<string, { message?: string }>
+      | undefined;
+
+    if (fields && Object.keys(fields).length > 0) {
+      return Object.entries(fields)
+        .map(([field, info]) => `${field}: ${info?.message ?? 'invalide'}`)
+        .join(' | ');
+    }
+
+    return error.message || `HTTP ${error.status}`;
+  }
+
+  if (error instanceof Error) return error.message;
+
+  return 'Une erreur est survenue lors de l’envoi.';
+}
+
+// <input type="date"> yields 'YYYY-MM-DD'. PocketBase date fields want a
+// full timestamp; an empty string is rejected, so empties are dropped
+// upstream rather than sent as ''.
+function toPbDate(value: string): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString();
+}
 
 export default function DemandeVisaForm() {
   const { t } = useLanguage();
+
   // =========================
   // FORM STATES
   // =========================
@@ -45,7 +82,9 @@ export default function DemandeVisaForm() {
 
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
-  
+  // Success is tracked in state instead of inferred from the message text,
+  // which breaks as soon as the message is translated.
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // =========================
   // SUBMIT
@@ -58,52 +97,58 @@ export default function DemandeVisaForm() {
 
     setSubmitting(true);
     setMessage('');
+    setIsSuccess(false);
 
     try {
-      const data = {
-        companyName: companyName,
-        secteur: secteur,
+      const values: Record<string, string> = {
+        companyName,
+        secteur,
         Commercial_Register_N: commercialRegisterN,
         Tax_ID_number: taxIdNumber,
-        adresse: adresse,
-        ville: ville,
-        pays: pays,
+        adresse,
+        ville,
+        pays,
         p_a_contacter: contactPerson,
-        telephone: telephone,
-        fax: fax,
-        mobile: mobile,
-        email: email,
-        siteweb: siteweb,
+        telephone,
+        fax,
+        mobile,
+        email,
+        siteweb,
 
-        passportNumber: passportNumber,
+        passportNumber,
         Autorite_emettrice: autoriteEmettrice,
-        Date_of_issue: dateOfIssue,
-        Expiration_date: expirationDate,
         Purpose_of_the_visit: purposeOfVisit,
         Position_held_: positionHeld,
 
+        Date_of_issue: toPbDate(dateOfIssue),
+        Expiration_date: toPbDate(expirationDate),
         created_on: new Date().toISOString(),
-        expire_on: expirationDate
-          ? new Date(expirationDate).toISOString()
-          : '',
-        arrive_on: arriveOn
-          ? new Date(arriveOn).toISOString()
-          : '',
-        departure_on: departureOn
-          ? new Date(departureOn).toISOString()
-          : '',
+        expire_on: toPbDate(expirationDate),
+        arrive_on: toPbDate(arriveOn),
+        departure_on: toPbDate(departureOn),
 
         s: 'received',
         note: '',
-         scan: scanFile,
       };
+
+      // Explicit multipart. The SDK only switches to FormData when it
+      // detects a File in a plain object; building it here removes the
+      // guesswork and is what makes the scan actually upload.
+      const form = new FormData();
+
+      Object.entries(values).forEach(([key, value]) => {
+        if (value !== '') form.append(key, value);
+      });
+
+      form.append('scan', scanFile);
 
       const record = await pb
         .collection('Demande_Invitation_Pour_Visa')
-        .create(data);
+        .create(form);
 
-      console.log('Record created:', record);
+      console.log('Record created:', record.id, record);
 
+      setIsSuccess(true);
       setMessage(t('Votre demande a été envoyée avec succès.'));
 
       // =========================
@@ -139,11 +184,13 @@ export default function DemandeVisaForm() {
     } catch (error) {
       console.error('PocketBase error:', error);
 
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : 'Une erreur est survenue lors de l’envoi.'
-      );
+      if (error instanceof ClientResponseError) {
+        console.error('PocketBase status:', error.status);
+        console.error('PocketBase response:', error.response);
+      }
+
+      setIsSuccess(false);
+      setMessage(describePbError(error));
     } finally {
       setSubmitting(false);
     }
@@ -425,7 +472,7 @@ export default function DemandeVisaForm() {
 
             <input
               type="date"
-              name="created_on"
+              name="Date_of_issue"
               required
               value={dateOfIssue}
               onChange={(e) => setDateOfIssue(e.target.value)}
@@ -441,7 +488,7 @@ export default function DemandeVisaForm() {
 
             <input
               type="date"
-              name="expire_on"
+              name="Expiration_date"
               required
               value={expirationDate}
               onChange={(e) => setExpirationDate(e.target.value)}
@@ -571,9 +618,7 @@ export default function DemandeVisaForm() {
         {message && (
           <p
             className={`text-sm font-semibold ${
-              message.includes('succès')
-                ? 'text-green-400'
-                : 'text-red-400'
+              isSuccess ? 'text-green-400' : 'text-red-400'
             }`}
           >
             {message}

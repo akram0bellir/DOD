@@ -1,15 +1,47 @@
 'use client';
 
 import { useState } from 'react';
-import PocketBase from 'pocketbase';
+import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
 
+// These MUST match the option values declared on the Secteur_dactivite
+// field in PocketBase, character for character, accents included.
+// If that field is a plain text field, any value is accepted and this
+// array is purely a UI concern.
 const SECTEURS = ['Peche', 'Aquaculture', 'Equipements', 'Autres'];
 
-const pb = new PocketBase('https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com');
+const PB_URL =
+  process.env.NEXT_PUBLIC_PB_URL ??
+  'https://z4vu9pzwoklnupf.ba7w.pocketbasecloud.com';
+
+const pb = new PocketBase(PB_URL);
+
+// PocketBase puts the real reason in error.response.data, keyed by field:
+// { Secteur_dactivite: { code: 'validation_in_invalid', message: '...' } }
+// error.message is always the generic "Failed to create record."
+function describePbError(error: unknown): string {
+  if (error instanceof ClientResponseError) {
+    const fields = error.response?.data as
+      | Record<string, { message?: string }>
+      | undefined;
+
+    if (fields && Object.keys(fields).length > 0) {
+      return Object.entries(fields)
+        .map(([field, info]) => `${field} → ${info?.message ?? 'invalide'}`)
+        .join(' | ');
+    }
+
+    return error.message || `HTTP ${error.status}`;
+  }
+
+  if (error instanceof Error) return error.message;
+
+  return 'Une erreur est survenue lors de l’envoi de votre demande.';
+}
 
 export default function VisiteurB2BForm() {
   const { t } = useLanguage();
+
   // =========================
   // FORM STATES
   // =========================
@@ -33,6 +65,8 @@ export default function VisiteurB2BForm() {
   const [consent, setConsent] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
 
   // =========================
   // SUBMIT
@@ -44,13 +78,17 @@ export default function VisiteurB2BForm() {
     if (!tva || !consent) return;
 
     setLoading(true);
+    setMessage('');
+    setIsSuccess(false);
 
     try {
-      const data = {
+      // Only the sector value itself goes into the select-backed field.
+      // The free-text precision for "Autres" is kept apart, because a
+      // select field rejects any value outside its declared options.
+      const values: Record<string, string> = {
         Visitors_name: visitorsName,
         Contact_person: contactPerson,
-        Secteur_dactivite:
-          secteur === 'Autres' ? autreSecteur : secteur,
+        Secteur_dactivite: secteur,
         phone: phone,
         Fax: fax,
         Commercial_Register_N: commercialRegisterN,
@@ -61,17 +99,29 @@ export default function VisiteurB2BForm() {
         Ville: ville,
         Site_web: siteWeb,
         Pays: pays,
-        DROITS_DINSCRIPTION:
-          '15000 DA / Visiteur national - 250 € / Visiteur international',
       };
+
+      // If your collection has a text column for the free-text sector,
+      // put its real name here and uncomment. Otherwise leave it out:
+      // sending an unknown field name is a 400 on recent PocketBase.
+      // if (secteur === 'Autres' && autreSecteur) {
+      //   values.Autre_secteur = autreSecteur;
+      // }
+
+      // Empty strings are rejected by non-text field types (url, email,
+      // number, date). Optional blanks are simply not sent.
+      const data = Object.fromEntries(
+        Object.entries(values).filter(([, v]) => v !== '')
+      );
 
       const record = await pb
         .collection('Visiteur_professionnel_B2B')
         .create(data);
 
-      console.log('Record created:', record);
+      console.log('Record created:', record.id, record);
 
-      alert(t('Votre demande a été envoyée avec succès.'));
+      setIsSuccess(true);
+      setMessage(t('Votre demande a été envoyée avec succès.'));
 
       // Reset form
       setVisitorsName('');
@@ -93,9 +143,16 @@ export default function VisiteurB2BForm() {
     } catch (error) {
       console.error('PocketBase error:', error);
 
-      alert(
-        t('Une erreur est survenue lors de l’envoi de votre demande.')
-      );
+      if (error instanceof ClientResponseError) {
+        console.error('status:', error.status);
+        console.error(
+          'field errors:',
+          JSON.stringify(error.response?.data, null, 2)
+        );
+      }
+
+      setIsSuccess(false);
+      setMessage(describePbError(error));
     } finally {
       setLoading(false);
     }
@@ -310,6 +367,7 @@ export default function VisiteurB2BForm() {
             <input
               type="text"
               name="siteweb"
+              placeholder="https://..."
               value={siteWeb}
               onChange={(e) => setSiteWeb(e.target.value)}
               className="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500"
@@ -418,6 +476,17 @@ export default function VisiteurB2BForm() {
             </span>
           </label>
         </div>
+
+        {/* Message */}
+        {message && (
+          <p
+            className={`text-sm font-semibold ${
+              isSuccess ? 'text-green-400' : 'text-red-400'
+            }`}
+          >
+            {message}
+          </p>
+        )}
 
         {/* Submit Box */}
         <div className="w-full bg-white rounded-xl p-8 md:p-12 flex flex-col md:flex-row justify-between items-center shadow-lg min-h-[120px]">
