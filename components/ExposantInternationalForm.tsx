@@ -1,9 +1,10 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
+import { storeFacture } from '@/lib/facture';
 
 /* ================================================================ */
 /* POCKETBASE                                                        */
@@ -15,8 +16,6 @@ const PB_URL =
 
 const pb = new PocketBase(PB_URL);
 
-/* PocketBase puts the real reason in error.response.data, keyed by
-   field name. error.message is always "Failed to create record." */
 function describePbError(error: unknown): string {
   if (error instanceof ClientResponseError) {
     const fields = error.response?.data as
@@ -28,110 +27,217 @@ function describePbError(error: unknown): string {
         .map(([field, info]) => `${field} → ${info?.message ?? 'invalide'}`)
         .join(' | ');
     }
-
     return error.message || `HTTP ${error.status}`;
   }
-
   if (error instanceof Error) return error.message;
-
   return 'Erreur lors de l’envoi de la demande.';
 }
 
 /* ================================================================ */
-/* SERVICES                                                          */
+/* OFFICIAL TARIFF — SIPA international exhibitors, fixed EUR HT    */
+/* Same values as the original sipalgerie.dz page.                   */
+/* The server hook (pb_hooks) must hold the same numbers.            */
 /* ================================================================ */
 
-const CHAIRS = [
-  { id: 'c1', name: 'ALINEA B chair', price: 6500 },
-  { id: 'c2', name: 'EVEREST B chair', price: 2500 },
-  { id: 'c3', name: 'CONFORT high chair', price: 7000 },
-  { id: 'c4', name: 'SIMILI high chair, black', price: 5500 },
-  { id: 'c5', name: 'OR chair, red and beige', price: 2000 },
-  { id: 'c6', name: 'PATCHWORK chair, grey', price: 8000 },
-  { id: 'c7', name: 'RÉUNION N chair', price: 2500 },
-  { id: 'c8', name: 'SCANDINAVE B chair', price: 4200 },
+const REGISTRATION_FEE = 350; // flat
+const ELECTRICITY_RATE = 5; // € per m² per day
+const EVENT_DAYS = 4; // 06 → 09 November
+const VAT_RATE = 0.19;
+const HOSTESS_RATE = 100; // € per person per day
+const HOSTESS_MAX_DAYS = 4;
+const HOSTESS_MAX_PEOPLE = 20; // sanity limit
+
+type StandTypeCode = 'amenage' | 'non_amenage' | 'decouvert';
+
+const STAND_TYPES: {
+  code: StandTypeCode;
+  label: string;
+  rate: number;
+  minSurface: number;
+}[] = [
+  { code: 'amenage', label: 'Stand aménagé', rate: 250, minSurface: 12 },
+  { code: 'non_amenage', label: 'Stand non aménagé', rate: 200, minSurface: 12 },
+  { code: 'decouvert', label: 'Emplacement découvert', rate: 150, minSurface: 48 },
 ];
 
-const TABLES = [
-  { id: 't1', name: 'STANDARD desk (80×35×90)', price: 10500 },
-  { id: 't2', name: 'STANDARD desk with panelling', price: 14000 },
-  { id: 't3', name: 'ROUNDED large table (120×90)', price: 14000 },
-  { id: 't4', name: 'SIMPLY large table (120×70)', price: 14000 },
-  { id: 't5', name: 'ATELIER table (140×65×70)', price: 10500 },
-  { id: 't6', name: 'TRIPODE coffee table (Ø60×60)', price: 8500 },
-  { id: 't7', name: 'CLASSIC high table (Ø60)', price: 8500 },
-  { id: 't8', name: 'SCANDINAVE high table (Ø60×100)', price: 8000 },
-  { id: 't9', name: 'RONDE table (Ø80×70)', price: 5000 },
-  {
-    id: 't10',
-    name: 'SCANDINAVE square glass table (85×85×75)',
-    price: 8500,
-  },
-  {
-    id: 't11',
-    name: 'SCANDINAVE round glass table (Ø80×75)',
-    price: 7000,
-  },
+const SURFACES = [12, 18, 24, 36, 48, 54, 60, 72, 80, 100, 120, 150, 200, 250, 300];
+
+/* Official lookup table — not a formula */
+const ALLOCATIONS: Record<number, { badges: number; macarons: number }> = {
+  12: { badges: 2, macarons: 1 },
+  18: { badges: 3, macarons: 1 },
+  24: { badges: 4, macarons: 2 },
+  36: { badges: 5, macarons: 2 },
+  48: { badges: 5, macarons: 2 },
+  54: { badges: 5, macarons: 2 },
+  60: { badges: 5, macarons: 3 },
+  72: { badges: 5, macarons: 3 },
+  80: { badges: 6, macarons: 3 },
+  100: { badges: 7, macarons: 3 },
+  120: { badges: 8, macarons: 3 },
+  150: { badges: 8, macarons: 3 },
+  200: { badges: 8, macarons: 3 },
+  250: { badges: 10, macarons: 4 },
+  300: { badges: 12, macarons: 5 },
+};
+
+const FACADES = [
+  { code: '2', label: 'Emplacement à 02 façades', price: 250 },
+  { code: '3', label: 'Emplacement à 03 façades', price: 350 },
+  { code: '4', label: 'Emplacement à 04 façades', price: 400 },
 ];
 
-const LOUNGE = [
-  {
-    id: 's1',
-    name: 'Premium lounge set, 4 seats + coffee table (red)',
-    price: 60000,
-  },
-  { id: 's2', name: 'Standard lounge chair, black, 1 seat', price: 7000 },
-  {
-    id: 's3',
-    name: 'Standard lounge set, black, 4 seats + coffee table',
-    price: 25000,
-  },
-  { id: 's4', name: 'VIP lounge set, 4 seats + coffee table', price: 50000 },
-  { id: 's5', name: 'STANDARD coffee table', price: 5500 },
+const ADS = [
+  { code: 'cover4', label: '4ème page de couverture', price: 2000 },
+  { code: 'cover3', label: '3ème page de couverture', price: 1600 },
+  { code: 'cover2', label: '2ème page de couverture', price: 1500 },
+  { code: 'half', label: '1/2 page intérieure couleur', price: 400 },
 ];
 
-const ELECTRONICS = [
-  { id: 'e1', name: 'Plastic waste bin', price: 800 },
-  { id: 'e2', name: 'Metal waste bin', price: 1600 },
-  { id: 'e3', name: '32" LED TV screen', price: 20000 },
-  { id: 'e4', name: '43" LED TV screen', price: 24000 },
-  { id: 'e5', name: '50" LED TV screen', price: 36000 },
-  { id: 'e6', name: '55" LED TV screen', price: 48000 },
-  { id: 'e7', name: '65" LED TV screen', price: 100000 },
-  { id: 'e8', name: 'Metal shelving unit', price: 6000 },
-  { id: 'e9', name: 'Guide line stand', price: 5000 },
-  { id: 'e10', name: 'Capsule coffee machine', price: 16000 },
-  { id: 'e11', name: 'Carpet (per m²)', price: 1700 },
-  { id: 'e12', name: 'Power strips', price: 800 },
-  { id: 'e13', name: 'Artificial plants', price: 5500 },
-  { id: 'e14', name: 'A4 literature stand (MB27-M)', price: 16000 },
-  { id: 'e15', name: 'A4 literature stand (MB27-P)', price: 8000 },
-  { id: 'e16', name: 'A4 literature stand (MB27-PM)', price: 6500 },
-  { id: 'e17', name: 'Aluminium storage door', price: 16000 },
-  { id: 'e18', name: 'Lectern', price: 16000 },
-  { id: 'e19', name: '90L refrigerator', price: 10500 },
-  { id: 'e20', name: '3-spot electrical strip', price: 3200 },
-  { id: 'e21', name: 'Floor-standing TV mount', price: 24000 },
-  { id: 'e22', name: 'Display case MB26-BI', price: 21000 },
-  { id: 'e23', name: 'Display case MB26-CO', price: 17000 },
-  { id: 'e24', name: 'Display case MB26-UN', price: 17000 },
+const SECTORS = [
+  'Pêche : Pêche artisanale',
+  'Pêche : Pêche côtière',
+  'Pêche : Pêche industrielle',
+  'Pêche : Pêche au corail',
+  'Pêche : Pêche continentale',
+  'Pêche : Pêche récréative',
+  'Pêche : Pêche au thon rouge',
+  'Aquaculture : Aquaculture marine',
+  'Aquaculture : Aquaculture continentale',
+  "Aquaculture : Pisciculture intégrée (produits d'eau douce)",
+  'Autres secteurs : Aliments pour poissons',
+  'Autres secteurs : Génétique et reproduction',
+  'Autres secteurs : Écloseries',
+  'Autres secteurs : Fabrication de cages flottantes',
+  'Autres secteurs : Fabrication de filets de pêche',
+  'Autres secteurs : Équipements pour élevage de poissons',
+  'Autres secteurs : Équipements pour la pêche professionnelle',
+  'Autres secteurs : Appareils de pêche et navires',
+  'Autres secteurs : Construction navale',
+  'Autres secteurs : Équipements portuaires',
+  'Autres secteurs : Hygiène et santé des poissons',
+  'Autres secteurs : Transformation des produits halieutiques',
+  'Autres secteurs : Biotechnologies marines',
+  'Autres secteurs : Énergies renouvelables',
+  'Autres secteurs : Consultance',
+  'Autres secteurs : Commerce et distribution',
+  'Autres secteurs : Logistique',
+  'Autres secteurs : Écotourisme et pêche récréative',
+  'Autres secteurs : Finance et investissements',
+  'Autres secteurs : Bateaux de plaisance',
+  'Autres secteurs : Centres de recherche',
+  'Autres secteurs : Plongée sous-marine',
+  'Autres secteurs : Assurance',
+  'Autres secteurs : Banque',
+  'Autres secteurs : Coopérative',
+  'Autres secteurs : Association',
+  'Autres : À préciser',
 ];
+const OTHER_SECTOR_ID = '37';
 
 /* ================================================================ */
-/* TYPES                                                             */
+/* SERVICES — EUR HT, ids kept from your version                    */
 /* ================================================================ */
 
 type Service = {
   id: string;
   name: string;
   price: number;
+  unit?: 'event' | 'm2';
 };
 
-type ServiceCategory =
-  | 'Chaise'
-  | 'Table'
-  | 'Salon'
-  | 'Electronique et accessoire';
+const CHAIRS: Service[] = [
+  { id: 'c1', name: 'ALINEA B chair', price: 55 },
+  { id: 'c2', name: 'EVEREST B chair', price: 20 },
+  { id: 'c3', name: 'CONFORT high chair', price: 60 },
+  { id: 'c4', name: 'SIMILI high chair, black', price: 45 },
+  { id: 'c5', name: 'OR chair, red and beige', price: 20 },
+  { id: 'c6', name: 'PATCHWORK chair, grey', price: 70 },
+  { id: 'c7', name: 'RÉUNION N chair', price: 20 },
+  { id: 'c8', name: 'SCANDINAVE B chair', price: 35 },
+];
+
+const TABLES: Service[] = [
+  { id: 't1', name: 'STANDARD desk (80×35×90)', price: 90 },
+  { id: 't2', name: 'STANDARD desk with panelling', price: 120 },
+  { id: 't3', name: 'ROUNDED large table (120×90)', price: 120 },
+  { id: 't4', name: 'SIMPLY large table (120×70)', price: 120 },
+  { id: 't5', name: 'ATELIER table (140×65×70)', price: 90 },
+  { id: 't6', name: 'TRIPODE coffee table (Ø60×60)', price: 70 },
+  { id: 't7', name: 'CLASSIC high table (Ø60)', price: 70 },
+  { id: 't8', name: 'SCANDINAVE high table (Ø60×100)', price: 65 },
+  { id: 't9', name: 'RONDE table (Ø80×70)', price: 40 },
+  { id: 't10', name: 'SCANDINAVE square glass table (85×85×75)', price: 70 },
+  { id: 't11', name: 'SCANDINAVE round glass table (Ø80×75)', price: 60 },
+];
+
+const LOUNGE: Service[] = [
+  { id: 's1', name: 'Premium lounge set, 4 seats + coffee table (red)', price: 500 },
+  { id: 's2', name: 'Standard lounge chair, black, 1 seat', price: 60 },
+  { id: 's3', name: 'Standard lounge set, black, 4 seats + coffee table', price: 210 },
+  { id: 's4', name: 'VIP lounge set, 4 seats + coffee table', price: 415 },
+  { id: 's5', name: 'STANDARD coffee table', price: 45 },
+];
+
+const ELECTRONICS: Service[] = [
+  { id: 'e1', name: 'Plastic waste bin', price: 5 },
+  { id: 'e2', name: 'Metal waste bin', price: 10 },
+  { id: 'e3', name: '32" LED TV screen', price: 160 },
+  { id: 'e4', name: '43" LED TV screen', price: 200 },
+  { id: 'e5', name: '50" LED TV screen', price: 300 },
+  { id: 'e6', name: '55" LED TV screen', price: 400 },
+  { id: 'e7', name: '65" LED TV screen', price: 840 },
+  { id: 'e8', name: 'Metal shelving unit', price: 50 },
+  { id: 'e9', name: 'Guide line stand', price: 40 },
+  { id: 'e10', name: 'Capsule coffee machine', price: 135 },
+  { id: 'e11', name: 'Carpet', price: 15, unit: 'm2' },
+  { id: 'e12', name: 'Power strips', price: 5 },
+  { id: 'e13', name: 'Artificial plants', price: 45 },
+  { id: 'e14', name: 'A4 literature stand (MB27-M)', price: 135 },
+  { id: 'e15', name: 'A4 literature stand (MB27-P)', price: 65 },
+  { id: 'e16', name: 'A4 literature stand (MB27-PM)', price: 55 },
+  { id: 'e17', name: 'Aluminium storage door', price: 135 },
+  { id: 'e18', name: 'Lectern', price: 135 },
+  { id: 'e19', name: '90L refrigerator', price: 85 },
+  { id: 'e20', name: '3-spot electrical strip', price: 27 },
+  { id: 'e21', name: 'Floor-standing TV mount', price: 200 },
+  { id: 'e22', name: 'Display case MB26-BI', price: 175 },
+  { id: 'e23', name: 'Display case MB26-CO', price: 140 },
+  { id: 'e24', name: 'Display case MB26-UN', price: 140 },
+];
+
+const ALL_SERVICES: Service[] = [...CHAIRS, ...TABLES, ...LOUNGE, ...ELECTRONICS];
+
+type ServiceCategory = 'Chaise' | 'Table' | 'Salon' | 'Electronique et accessoire';
+
+const SERVICE_TABS: Record<ServiceCategory, Service[]> = {
+  Chaise: CHAIRS,
+  Table: TABLES,
+  Salon: LOUNGE,
+  'Electronique et accessoire': ELECTRONICS,
+};
+
+/* ================================================================ */
+/* HELPERS                                                           */
+/* ================================================================ */
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+const formatEUR = (amount: number) =>
+  amount.toLocaleString('fr-FR', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const clampInt = (value: string, min: number, max: number) => {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /* ================================================================ */
 /* COMPONENT                                                         */
@@ -140,142 +246,11 @@ type ServiceCategory =
 export default function ExposantInternationalForm() {
   const { t } = useLanguage();
 
-  /* ================================================================ */
-  /* DYNAMIC DZD -> EUR EXCHANGE RATE                                */
-  /* ================================================================ */
-
-  const [dzdToEur, setDzdToEur] = useState<number | null>(null);
-  const [exchangeRateDate, setExchangeRateDate] = useState<string | null>(
-    null
-  );
-  const [exchangeRateLoading, setExchangeRateLoading] = useState(true);
-  const [exchangeRateError, setExchangeRateError] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchExchangeRate = async () => {
-      try {
-        setExchangeRateLoading(true);
-        setExchangeRateError(false);
-
-        /*
-         * Frankfurter provides current official/global FX data
-         * without requiring an API key.
-         *
-         * DZD is the source currency.
-         * EUR is the displayed client currency.
-         */
-        const response = await fetch(
-          'https://api.frankfurter.dev/v2/rate/dzd/eur',
-          {
-            signal: controller.signal,
-            cache: 'no-store',
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Exchange-rate API returned ${response.status}`);
-        }
-
-        const data: {
-          date?: string;
-          base?: string;
-          quote?: string;
-          rate?: number;
-        } = await response.json();
-
-        if (
-          typeof data.rate !== 'number' ||
-          !Number.isFinite(data.rate) ||
-          data.rate <= 0
-        ) {
-          throw new Error('Invalid DZD/EUR exchange rate');
-        }
-
-        setDzdToEur(data.rate);
-        setExchangeRateDate(data.date ?? null);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          return;
-        }
-
-        console.error('Exchange rate error:', error);
-
-        setDzdToEur(null);
-        setExchangeRateDate(null);
-        setExchangeRateError(true);
-      } finally {
-        if (!controller.signal.aborted) {
-          setExchangeRateLoading(false);
-        }
-      }
-    };
-
-    fetchExchangeRate();
-
-    return () => {
-      controller.abort();
-    };
-  }, []);
-
-  /* ================================================================ */
-  /* CURRENCY FORMATTERS                                              */
-  /* ================================================================ */
-
-  const formatDZD = (amount: number) => amount.toLocaleString('fr-DZ');
-
-  const formatEUR = (amount: number) => {
-    if (dzdToEur === null || !Number.isFinite(amount)) {
-      return '—';
-    }
-
-    return (amount * dzdToEur).toLocaleString('fr-FR', {
-      style: 'currency',
-      currency: 'EUR',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  const renderPrice = (amount: number, suffix = 'DA') => (
-    <div className="flex flex-col items-end">
-      <span>
-        {formatDZD(amount)} {suffix}
-      </span>
-
-      <span className="text-sm font-semibold text-gray-500">
-        {exchangeRateLoading
-          ? t('Conversion EUR...')
-          : exchangeRateError
-            ? t('EUR indisponible')
-            : `≈ ${formatEUR(amount)}`}
-      </span>
-    </div>
-  );
-
-  const exchangeRateLabel =
-    dzdToEur !== null
-      ? `1 DA = ${dzdToEur.toLocaleString('fr-FR', {
-          minimumFractionDigits: 6,
-          maximumFractionDigits: 8,
-        })} €`
-      : t('Taux EUR indisponible');
-
-  /* -------------------------------------------------------------- */
-  /* ACTIVE SERVICE CATEGORY                                        */
-  /* -------------------------------------------------------------- */
-
-  const [activeService, setActiveService] =
-    useState<ServiceCategory>('Chaise');
-
-  /* -------------------------------------------------------------- */
-  /* DEMANDE DE PARTICIPATION                                       */
-  /* -------------------------------------------------------------- */
-
+  /* ---------------- Participation ---------------- */
   const [raisonSociale, setRaisonSociale] = useState('');
   const [pays, setPays] = useState('');
-  const [secteurActivite, setSecteurActivite] = useState('');
+  const [secteurId, setSecteurId] = useState('');
+  const [autreSecteur, setAutreSecteur] = useState('');
   const [personneContact, setPersonneContact] = useState('');
   const [registreCommerce, setRegistreCommerce] = useState('');
   const [tel, setTel] = useState('');
@@ -287,84 +262,99 @@ export default function ExposantInternationalForm() {
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
 
-  /* -------------------------------------------------------------- */
-  /* RESERVATION DE STAND                                           */
-  /* -------------------------------------------------------------- */
-
-  const [choixStand, setChoixStand] = useState('');
+  /* ---------------- Stand ---------------- */
+  const [choixStand, setChoixStand] = useState<StandTypeCode | ''>('');
   const [superficie, setSuperficie] = useState('');
-  const [majorationFacades, setMajorationFacades] = useState('');
-  const [publiciteCatalogue, setPubliciteCatalogue] = useState('');
+  const [facadeCode, setFacadeCode] = useState('');
+  const [adCode, setAdCode] = useState('');
 
-  /* -------------------------------------------------------------- */
-  /* SERVICES SELECTION                                             */
-  /* -------------------------------------------------------------- */
-
-  const [selectedServices, setSelectedServices] = useState<
-    Record<string, number>
-  >({});
-
-  /* -------------------------------------------------------------- */
-  /* SIGNALETIQUE                                                    */
-  /* -------------------------------------------------------------- */
-
-  const [nomEnseigne, setNomEnseigne] = useState('');
-  const [nombreBadges, setNombreBadges] = useState('');
-  const [macarons, setMacarons] = useState('');
+  /* ---------------- Services ---------------- */
+  const [activeService, setActiveService] = useState<ServiceCategory>('Chaise');
+  const [selectedServices, setSelectedServices] = useState<Record<string, number>>({});
   const [hostessSelected, setHostessSelected] = useState(false);
+  const [hostessCount, setHostessCount] = useState(1);
+  const [hostessDays, setHostessDays] = useState(1);
 
-  /* -------------------------------------------------------------- */
-  /* CONDITIONS                                                      */
-  /* -------------------------------------------------------------- */
+  /* ---------------- Signage ---------------- */
+  const [nomEnseigne, setNomEnseigne] = useState('');
 
+  /* ---------------- Conditions ---------------- */
   const [acceptTva, setAcceptTva] = useState(false);
   const [acceptAnnulation, setAcceptAnnulation] = useState(false);
   const [acceptConditions, setAcceptConditions] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
 
-  /* -------------------------------------------------------------- */
-  /* SUBMISSION STATE                                                */
-  /* -------------------------------------------------------------- */
+  /* ---------------- Anti-spam honeypot ---------------- */
+  const [honeypot, setHoneypot] = useState('');
 
+  /* ---------------- Submission ---------------- */
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
 
   /* ================================================================ */
-  /* STAND CALCULATIONS                                               */
+  /* CALCULATIONS                                                      */
   /* ================================================================ */
 
-  const droitsInscription = 20000;
-
-  const prixParM2 = Number(choixStand || 0);
+  const standType = STAND_TYPES.find((s) => s.code === choixStand);
   const surfaceM2 = Number(superficie || 0);
-  const prixStand = prixParM2 * surfaceM2;
 
-  /* Electricity = surface × 4 days × 20 DA */
-  const electricite = surfaceM2 * 4 * 20;
+  // Outdoor space starts at 48 m², like the original page
+  const availableSurfaces = standType
+    ? SURFACES.filter((s) => s >= standType.minSurface)
+    : [];
 
-  const majoration = Number(majorationFacades || 0);
-  const publicite = Number(publiciteCatalogue || 0);
+  const prixStand = standType ? standType.rate * surfaceM2 : 0;
+  const electricite = surfaceM2 * EVENT_DAYS * ELECTRICITY_RATE; // = 20 × S
+
+  const facade = FACADES.find((f) => f.code === facadeCode);
+  const majoration = facade?.price ?? 0;
+
+  const ad = ADS.find((a) => a.code === adCode);
+  const publicite = ad?.price ?? 0;
+
+  const selectedAdditionalServices = ALL_SERVICES.filter(
+    (s) => selectedServices[s.id]
+  ).map((s) => ({ ...s, qty: selectedServices[s.id] }));
+
+  const totalAdditionalServices = selectedAdditionalServices.reduce(
+    (sum, s) => sum + s.price * s.qty,
+    0
+  );
+
+  const hostessTotal = hostessSelected
+    ? HOSTESS_RATE * hostessCount * hostessDays
+    : 0;
+
+  const totalHT = round2(
+    REGISTRATION_FEE +
+      prixStand +
+      electricite +
+      majoration +
+      publicite +
+      totalAdditionalServices +
+      hostessTotal
+  );
+  const tva = round2(totalHT * VAT_RATE);
+  const totalTTC = round2(totalHT + tva);
+
+  const allocation = ALLOCATIONS[surfaceM2];
+  const badges = allocation?.badges ?? 0;
+  const macarons = allocation?.macarons ?? 0;
 
   /* ================================================================ */
-  /* CURRENT SERVICE LIST                                             */
+  /* HANDLERS                                                          */
   /* ================================================================ */
 
-  const getCurrentServices = (): Service[] => {
-    switch (activeService) {
-      case 'Chaise':
-        return CHAIRS;
-      case 'Table':
-        return TABLES;
-      case 'Salon':
-        return LOUNGE;
-      case 'Electronique et accessoire':
-        return ELECTRONICS;
-      default:
-        return [];
+  const handleStandTypeChange = (code: string) => {
+    const next = STAND_TYPES.find((s) => s.code === code);
+    setChoixStand(next ? next.code : '');
+    // Reset the surface when it no longer fits the new type
+    if (!next || (superficie && Number(superficie) < next.minSurface)) {
+      setSuperficie('');
     }
   };
-
-  const currentServices = getCurrentServices();
 
   const toggleService = (id: string) => {
     setSelectedServices((current) => {
@@ -379,711 +369,441 @@ export default function ExposantInternationalForm() {
     setSelectedServices((current) => {
       const next = { ...current };
       if (quantity <= 0) delete next[id];
-      else next[id] = quantity;
+      else next[id] = Math.min(quantity, 999);
       return next;
     });
   };
 
-  const allServices: Service[] = [
-    ...CHAIRS,
-    ...TABLES,
-    ...LOUNGE,
-    ...ELECTRONICS,
-  ];
-
-  const selectedAdditionalServices = allServices
-    .filter((service) => selectedServices[service.id])
-    .map((service) => ({
-      ...service,
-      qty: selectedServices[service.id],
-    }));
-
-  const totalAdditionalServices = selectedAdditionalServices.reduce(
-    (total, service) => total + service.price * service.qty,
-    0
-  );
-
-  const totalHT =
-    droitsInscription +
-    prixStand +
-    electricite +
-    majoration +
-    publicite +
-    totalAdditionalServices;
-
-  const tva = totalHT * 0.19;
-  const totalTTC = totalHT + tva;
-
   /* ================================================================ */
-  /* AUTOMATIC BADGES                                                   */
+  /* VALIDATION                                                        */
   /* ================================================================ */
 
-  /*
-   * You can change this rule later if the official
-   * exhibition rules specify another calculation.
-   *
-   * Currently:
-   * 1 badge per 9 m², minimum 2.
-   */
+  const getValidationError = (): string | null => {
+    const required: Array<[string, string]> = [
+      ['Raison Sociale', raisonSociale],
+      ["Secteur d'activité", secteurId],
+      ['N° Identifiant fiscal', identifiantFiscal],
+      ['Adresse', adresse],
+      ['Ville', ville],
+      ['Pays', pays],
+      ['Personne à contacter', personneContact],
+      ['Tél', tel],
+      ['Mobile', mobile],
+      ['Email', email],
+      ['Type de stand', choixStand],
+      ['Superficie', superficie],
+      ["Nom sur l'enseigne", nomEnseigne],
+    ];
+    if (secteurId === OTHER_SECTOR_ID) {
+      required.push(['Préciser le secteur', autreSecteur]);
+    }
 
-  const calculatedBadges =
-    surfaceM2 > 0 ? Math.max(2, Math.ceil(surfaceM2 / 9)) : 0;
+    const missing = required
+      .filter(([, v]) => v.trim() === '')
+      .map(([label]) => t(label));
 
-  const calculatedMacarons =
-    surfaceM2 > 0 ? Math.max(1, Math.ceil(surfaceM2 / 18)) : 0;
-
-  /* ================================================================ */
-  /* VALIDATION                                                         */
-  /*                                                                    */
-  /* The submit button is outside the <form> validation flow, so the    */
-  /* required fields are checked here. Without this, a blank form is    */
-  /* sent to PocketBase and every required column fails at once.        */
-  /* ================================================================ */
-
-  const requiredFields: Array<[string, string]> = [
-    ['Raison Sociale', raisonSociale],
-    ['Pays', pays],
-    ["Secteur d'activité", secteurActivite],
-    ['Personne à contacter', personneContact],
-    ['Registre de commerce', registreCommerce],
-    ['Tél', tel],
-    ['Identifiant fiscal', identifiantFiscal],
-    ['Adresse', adresse],
-    ['Ville', ville],
-    ['Mobile', mobile],
-    ['Email', email],
-    ['Stand type', choixStand],
-    ['Superficie', superficie],
-  ];
-
-  const missing = requiredFields
-    .filter(([, value]) => value.trim() === '')
-    .map(([label]) => label);
-
-  const termsAccepted = acceptTva && acceptAnnulation && acceptConditions;
-
-  const canSubmit = missing.length === 0 && termsAccepted && !loading;
+    if (missing.length > 0) {
+      return `${t('Champs obligatoires manquants :')} ${missing.join(', ')}`;
+    }
+    if (!EMAIL_RE.test(email.trim())) {
+      return t("L'adresse email n'est pas valide.");
+    }
+    if (standType && surfaceM2 < standType.minSurface) {
+      return t('Superficie trop petite pour ce type de stand.');
+    }
+    if (!(acceptTva && acceptAnnulation && acceptConditions)) {
+      return t('Veuillez accepter les trois conditions.');
+    }
+    return null;
+  };
 
   /* ================================================================ */
-  /* SUBMIT                                                             */
+  /* SUBMIT                                                            */
   /* ================================================================ */
 
   const handleSubmit = async () => {
+    if (loading || submitted) return;
+
     setMessage('');
     setIsSuccess(false);
 
-    if (missing.length > 0) {
-      setMessage(`Champs obligatoires manquants : ${missing.join(', ')}`);
+    // Bots fill the hidden field: pretend success, send nothing
+    if (honeypot.trim() !== '') {
+      setSubmitted(true);
+      setIsSuccess(true);
+      setMessage(t('Demande envoyée avec succès.'));
       return;
     }
 
-    if (!termsAccepted) {
-      setMessage('Veuillez accepter les trois conditions.');
+    const error = getValidationError();
+    if (error) {
+      setMessage(error);
       return;
     }
 
     setLoading(true);
 
     try {
-      const additionalServices = selectedAdditionalServices.map(
-        (service) => ({
-          id: service.id,
-          name: service.name,
-          price: service.price,
-          qty: service.qty,
-        })
-      );
+      const sectorLabel =
+        secteurId === OTHER_SECTOR_ID
+          ? `Autres : ${autreSecteur.trim()}`
+          : SECTORS[Number(secteurId) - 1];
 
-      /* Text columns — empty optional values are dropped rather than
-         sent as '', which non-text field types reject. */
       const textValues: Record<string, string> = {
         company_name: raisonSociale,
         country: pays,
-        sector_activity: secteurActivite,
+        sector_activity: sectorLabel,
         contact_person: personneContact,
         company_registration_no: registreCommerce,
         phone: tel,
         tax_id_no: identifiantFiscal,
-        fax: fax,
+        fax,
         address: adresse,
         website: siteWeb,
         city: ville,
-        mobile: mobile,
-        email: email,
+        mobile,
+        email,
         fascia_company_name: nomEnseigne,
-        NOTE: '',
-        STATUS: 'received',
       };
 
       const data: Record<string, unknown> = Object.fromEntries(
-        Object.entries(textValues).filter(([, v]) => v !== '')
+        Object.entries(textValues)
+          .map(([k, v]) => [k, v.trim()])
+          .filter(([, v]) => v !== '')
       );
 
-      /* Selects yield strings. These columns are numeric, so they are
-         coerced here; the unpicked optional ones stay out entirely. */
-      data.stand_type = prixParM2;
+      /* Selections — the server hook recomputes every amount from these */
+      data.stand_type = choixStand; // text code, not a price
       data.surface = surfaceM2;
+      if (facade) data.facade = facade.price;
+      if (ad) data.catalogue = ad.price;
 
-      if (majorationFacades !== '') data.facade = majoration;
-      if (publiciteCatalogue !== '') data.catalogue = publicite;
-
-      /* Sent as a real array for a `json` column. If ADDITIONAL_SERVICES
-         is a plain `text` column instead, wrap it:
-         JSON.stringify(additionalServices) */
-      data.ADDITIONAL_SERVICES = additionalServices;
-
-      data.exhibitor_badges =
-        nombreBadges === '' ? calculatedBadges : Number(nombreBadges);
-
-      data.access_passes =
-        macarons === '' ? calculatedMacarons : Number(macarons);
+      data.ADDITIONAL_SERVICES = selectedAdditionalServices.map((s) => ({
+        id: s.id,
+        name: s.name,
+        price: s.price,
+        qty: s.qty,
+        unit: s.unit ?? 'event',
+      }));
 
       data.hostess_selected = hostessSelected;
+      data.hostess_count = hostessSelected ? hostessCount : 0;
+      data.hostess_days = hostessSelected ? hostessDays : 0;
+
+      data.exhibitor_badges = badges;
+      data.access_passes = macarons;
 
       data.terms_prices_excl_tax = acceptTva;
       data.terms_no_refund = acceptAnnulation;
       data.terms_general_conditions = acceptConditions;
 
+      /* Informational only — overwritten server-side */
+      data.stand_price = prixStand;
+      data.electricity = electricite;
+      data.services_total = totalAdditionalServices;
+      data.hostess_total = hostessTotal;
       data.total_ht = totalHT;
+      data.tva = tva;
+      data.total_ttc = totalTTC;
+      data.currency = 'EUR';
+      data.STATUS = 'received';
 
-      console.log('Sending to PocketBase:', data);
+      const record = await pb.collection('Exposant_International').create(data);
 
-      const record = await pb
-        .collection('Exposant_International')
-        .create(data);
-
-      console.log('Created record:', record.id, record);
-
-      setIsSuccess(true);
-      setMessage(t('Demande envoyée avec succès.'));
-    } catch (error) {
-      console.error('PocketBase error:', error);
-
-      if (error instanceof ClientResponseError) {
-        console.error('status:', error.status);
-        console.error(
-          'field errors:',
-          JSON.stringify(error.response?.data, null, 2)
-        );
+      /* The request is saved; a failed invoice must not turn it into an error. */
+      try {
+        await storeFacture(record);
+      } catch (factureError) {
+        console.error('Facture PDF not stored:', factureError);
       }
 
+      setSubmitted(true);
+      setIsSuccess(true);
+      setMessage(t('Demande envoyée avec succès.'));
+    } catch (err) {
+      console.error('PocketBase error:', err);
       setIsSuccess(false);
-      setMessage(describePbError(error));
+      setMessage(describePbError(err));
     } finally {
       setLoading(false);
     }
   };
 
   /* ================================================================ */
-  /* INPUT STYLE                                                       */
+  /* UI HELPERS                                                        */
   /* ================================================================ */
 
   const inputClass =
-    'w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500';
+    'w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500 disabled:opacity-50';
+
+  const textField = (
+    label: string,
+    value: string,
+    setter: (v: string) => void,
+    options: { required?: boolean; type?: string; placeholder?: string } = {}
+  ) => (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-bold text-black">
+        {t(label)} {options.required && '*'}
+      </label>
+      <input
+        type={options.type ?? 'text'}
+        value={value}
+        placeholder={options.placeholder}
+        onChange={(e) => setter(e.target.value)}
+        className={inputClass}
+      />
+    </div>
+  );
+
+  const priceRow = (label: string, amount: number, strong = false) => (
+    <div className="flex items-center justify-between">
+      <span
+        className={
+          strong
+            ? 'text-lg font-bold text-gray-600'
+            : 'text-[#0ea5e9] text-xl font-bold'
+        }
+      >
+        {t(label)}
+      </span>
+      <span className={strong ? 'text-xl font-black text-black' : 'text-xl font-bold text-black'}>
+        {formatEUR(amount)}
+      </span>
+    </div>
+  );
+
+  const currentServices = SERVICE_TABS[activeService];
 
   /* ================================================================ */
-  /* RENDER                                                             */
+  /* RENDER                                                            */
   /* ================================================================ */
 
   return (
     <div className="flex flex-col gap-10">
-
-      {/* ========================================================== */}
-      {/* TITLE                                                       */}
-      {/* ========================================================== */}
-
+      {/* TITLE */}
       <div className="flex flex-col gap-4 text-white">
-
         <h1 className="text-4xl font-bold tracking-wide">
           {t('Inscription exposant international')}
         </h1>
-
         <p className="font-semibold text-base max-w-[700px] leading-relaxed">
           {t('Merci de bien vouloir nous retourner le formulaire suivant afin que nous puissions vous faire parvenir une facture.')}
         </p>
-
         <div className="bg-[#dc2626] text-white text-sm font-bold py-2.5 px-6 rounded-md w-fit mt-2">
           {t('Formulaire à retourner avant le 25 Octobre 2025')}
         </div>
+      </div>
 
+      {/* HONEYPOT — invisible to people, filled by bots */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label>
+          Website confirmation
+          <input
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+          />
+        </label>
       </div>
 
       {/* ========================================================== */}
       {/* 1 — DEMANDE DE PARTICIPATION                              */}
       {/* ========================================================== */}
-
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
-
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
           {t('Demande de participation:')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
+          {textField('Raison Sociale', raisonSociale, setRaisonSociale, { required: true })}
+          {textField('Pays', pays, setPays, { required: true })}
 
-          {/* RAISON SOCIALE */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Raison Sociale')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={raisonSociale}
-              onChange={(e) => setRaisonSociale(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* PAYS */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Pays')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={pays}
-              onChange={(e) => setPays(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* SECTEUR */}
-
+          {/* SECTOR — fixed list like the original, with "other" */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
               {t("Secteur d'activité")} *
             </label>
-
-            <input
-              type="text"
-              required
-              value={secteurActivite}
-              onChange={(e) => setSecteurActivite(e.target.value)}
+            <select
+              value={secteurId}
+              onChange={(e) => setSecteurId(e.target.value)}
               className={inputClass}
-            />
+            >
+              <option value="">{t('Sélectionnez un secteur')}</option>
+              {SECTORS.map((label, i) => (
+                <option key={label} value={String(i + 1)}>
+                  {t(label)}
+                </option>
+              ))}
+            </select>
+            {secteurId === OTHER_SECTOR_ID && (
+              <input
+                type="text"
+                placeholder={t('Préciser le secteur')}
+                value={autreSecteur}
+                onChange={(e) => setAutreSecteur(e.target.value)}
+                className={`${inputClass} mt-2`}
+              />
+            )}
           </div>
 
-          {/* CONTACT */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Personne à contacter')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={personneContact}
-              onChange={(e) => setPersonneContact(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* RC */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Registre de commerce N°')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={registreCommerce}
-              onChange={(e) => setRegistreCommerce(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* TEL */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Tél')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={tel}
-              onChange={(e) => setTel(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* FISCAL */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('N° Identifiant fiscal')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={identifiantFiscal}
-              onChange={(e) => setIdentifiantFiscal(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* FAX */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Fax')}
-            </label>
-
-            <input
-              type="text"
-              value={fax}
-              onChange={(e) => setFax(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* ADDRESS */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Adresse')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={adresse}
-              onChange={(e) => setAdresse(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* WEBSITE */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Site web')}
-            </label>
-
-            <input
-              type="text"
-              placeholder="https://..."
-              value={siteWeb}
-              onChange={(e) => setSiteWeb(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* CITY */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Ville')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={ville}
-              onChange={(e) => setVille(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* MOBILE */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Mobile')} *
-            </label>
-
-            <input
-              type="text"
-              required
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
-          {/* EMAIL */}
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Email')} *
-            </label>
-
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
+          {textField('Personne à contacter', personneContact, setPersonneContact, { required: true })}
+          {textField('Registre de commerce N°', registreCommerce, setRegistreCommerce)}
+          {textField('Tél', tel, setTel, { required: true, type: 'tel' })}
+          {textField('N° Identifiant fiscal', identifiantFiscal, setIdentifiantFiscal, { required: true })}
+          {textField('Fax', fax, setFax, { type: 'tel' })}
+          {textField('Adresse', adresse, setAdresse, { required: true })}
+          {textField('Site web', siteWeb, setSiteWeb, { type: 'url', placeholder: 'https://...' })}
+          {textField('Ville', ville, setVille, { required: true })}
+          {textField('Mobile', mobile, setMobile, { required: true, type: 'tel' })}
+          {textField('Email', email, setEmail, { required: true, type: 'email' })}
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
-
+        <div className="mt-4 flex items-center gap-3">
           <span className="text-[#0ea5e9] text-2xl font-bold">
             {t("Droits d'inscription:")}
           </span>
-
           <span className="text-black text-2xl font-bold">
-            {renderPrice(droitsInscription)}
+            {formatEUR(REGISTRATION_FEE)}
           </span>
-
         </div>
-
       </div>
 
       {/* ========================================================== */}
       {/* 2 — RESERVATION DE STAND                                  */}
       {/* ========================================================== */}
-
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
-
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
           {t('RESERVATION DE STAND:')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
-
           {/* STAND TYPE */}
-
           <div className="flex flex-col gap-1.5">
-
-            <label className="text-sm font-bold text-black">
-              {t('Stand type')} *
-            </label>
-
+            <label className="text-sm font-bold text-black">{t('Type de stand')} *</label>
             <select
               value={choixStand}
-              onChange={(e) => setChoixStand(e.target.value)}
+              onChange={(e) => handleStandTypeChange(e.target.value)}
               className={inputClass}
             >
               <option value="">{t('Sélectionnez un stand')}</option>
-
-              <option value="17000">
-                Stand aménagé (17.000 DA/m²
-                {dzdToEur !== null ? ` ≈ ${formatEUR(17000)}/m²` : ''})
-              </option>
-
-              <option value="12000">
-                Stand non aménagé (12.000 DA/m²
-                {dzdToEur !== null ? ` ≈ ${formatEUR(12000)}/m²` : ''})
-              </option>
-
-              <option value="10000">
-                Emplacement découvert (10.000 DA/m²
-                {dzdToEur !== null ? ` ≈ ${formatEUR(10000)}/m²` : ''})
-              </option>
+              {STAND_TYPES.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {`${t(s.label)} (${s.rate} €/m²)`}
+                </option>
+              ))}
             </select>
-
           </div>
 
-          {/* SURFACE */}
-
+          {/* SURFACE — depends on the stand type */}
           <div className="flex flex-col gap-1.5">
-
-            <label className="text-sm font-bold text-black">
-              {t('Superficie')} *
-            </label>
-
+            <label className="text-sm font-bold text-black">{t('Superficie')} *</label>
             <select
               value={superficie}
               onChange={(e) => setSuperficie(e.target.value)}
+              disabled={!standType}
               className={inputClass}
             >
-              <option value="">{t('Sélectionnez la superficie')}</option>
-              <option value="12">12 m²</option>
-              <option value="18">18 m²</option>
-              <option value="24">24 m²</option>
-              <option value="36">36 m²</option>
-              <option value="48">48 m²</option>
-              <option value="54">54 m²</option>
-              <option value="60">60 m²</option>
-              <option value="72">72 m²</option>
-              <option value="80">80 m²</option>
-              <option value="100">100 m²</option>
-              <option value="120">120 m²</option>
-              <option value="150">150 m²</option>
-              <option value="200">200 m²</option>
-              <option value="250">250 m²</option>
-              <option value="300">300 m²</option>
+              <option value="">
+                {standType
+                  ? t('Sélectionnez la superficie')
+                  : t("Choisissez d'abord le type de stand")}
+              </option>
+              {availableSurfaces.map((s) => (
+                <option key={s} value={String(s)}>
+                  {s} m²
+                </option>
+              ))}
             </select>
-
           </div>
 
           {/* FACADES */}
-
           <div className="flex flex-col gap-1.5">
-
             <label className="text-sm font-bold text-black">
               {t('Majoration façades supplémentaires (forfait)')}
             </label>
-
             <select
-              value={majorationFacades}
-              onChange={(e) => setMajorationFacades(e.target.value)}
+              value={facadeCode}
+              onChange={(e) => setFacadeCode(e.target.value)}
               className={inputClass}
             >
-              <option value="">{t('Sélectionnez une option')}</option>
-
-              <option value="17000">
-                {`Emplacement à 02 façades 17.000 DA${dzdToEur !== null ? ` ≈ ${formatEUR(17000)}` : ''}`}
-              </option>
-
-              <option value="22000">
-                {`Emplacement à 03 façades 22.000 DA${dzdToEur !== null ? ` ≈ ${formatEUR(22000)}` : ''}`}
-              </option>
-
-              <option value="32000">
-                {`Emplacement à 04 façades 32.000 DA${dzdToEur !== null ? ` ≈ ${formatEUR(32000)}` : ''}`}
-              </option>
+              <option value="">{t('Sans façade supplémentaire')}</option>
+              {FACADES.map((f) => (
+                <option key={f.code} value={f.code}>
+                  {`${t(f.label)} — ${formatEUR(f.price)}`}
+                </option>
+              ))}
             </select>
-
           </div>
 
           {/* CATALOGUE */}
-
           <div className="flex flex-col gap-1.5">
-
             <label className="text-sm font-bold text-black">
               {t('Publicité sur le catalogue')}
             </label>
-
             <select
-              value={publiciteCatalogue}
-              onChange={(e) => setPubliciteCatalogue(e.target.value)}
+              value={adCode}
+              onChange={(e) => setAdCode(e.target.value)}
               className={inputClass}
             >
-              <option value="">Sélectionnez une option</option>
-
-              <option value="120000">
-                {`4ème page de couverture 120.000 DA${dzdToEur !== null ? ` ≈ ${formatEUR(120000)}` : ''}`}
-              </option>
-
-              <option value="100000">
-                {`3ème page de couverture 100.000 DA${dzdToEur !== null ? ` ≈ ${formatEUR(100000)}` : ''}`}
-              </option>
-
-              <option value="80000">
-                {`2ème page de couverture 80.000 DA${dzdToEur !== null ? ` ≈ ${formatEUR(80000)}` : ''}`}
-              </option>
-
-              <option value="32000">
-                {`1/2 page intérieure couleur 32.000 DA${dzdToEur !== null ? ` ≈ ${formatEUR(32000)}` : ''}`}
-              </option>
+              <option value="">{t('Sans publicité')}</option>
+              {ADS.map((a) => (
+                <option key={a.code} value={a.code}>
+                  {`${t(a.label)} — ${formatEUR(a.price)}`}
+                </option>
+              ))}
             </select>
-
           </div>
-
         </div>
 
         <p className="text-sm font-bold text-black mt-2">
-          {t("L'aménagement du stand comprend : Moquette, cloisons, 1 table, 3 chaises, 3 spots, signalétiques prise de raccommodement électrique 220V")}
+          {t("L'aménagement du stand comprend : moquette, cloisons, 1 table, 3 chaises, 3 spots, signalétique, prise de raccordement électrique 220V")}
         </p>
 
-        {/* PRICE BREAKDOWN */}
-
         <div className="flex flex-col gap-5 mt-2">
-
-          <div className="flex items-center justify-between">
-            <span className="text-[#0ea5e9] text-2xl font-bold">
-              {t('Prix stand :')}
-            </span>
-            <span className="text-black text-2xl font-bold">
-              {renderPrice(prixStand)}
+          {priceRow('Prix stand :', prixStand)}
+          <div className="flex flex-col gap-1">
+            {priceRow('Électricité :', electricite)}
+            <span className="text-xs text-gray-500">
+              {`${surfaceM2} m² × ${EVENT_DAYS} ${t('jours')} × ${ELECTRICITY_RATE} €`}
             </span>
           </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-[#0ea5e9] text-2xl font-bold">
-              {t('Électricité :')}
-            </span>
-            <span className="text-black text-2xl font-bold">
-              {renderPrice(electricite)}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-[#0ea5e9] text-2xl font-bold">
-              {t('Façades :')}
-            </span>
-            <span className="text-black text-2xl font-bold">
-              {renderPrice(majoration)}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-[#0ea5e9] text-2xl font-bold">
-              {t('Publicité catalogue :')}
-            </span>
-            <span className="text-black text-2xl font-bold">
-              {renderPrice(publicite)}
-            </span>
-          </div>
-
+          {priceRow('Façades :', majoration)}
+          {priceRow('Publicité catalogue :', publicite)}
         </div>
-
       </div>
 
       {/* ========================================================== */}
       {/* 3 — SERVICES SUPPLEMENTAIRES                              */}
       {/* ========================================================== */}
-
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
-
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
           {t('SERVICES SUPPLEMENTAIRES:')}
         </div>
 
-        {/* CATEGORY TABS */}
-
         <div className="bg-gray-300/80 rounded-lg p-2 flex flex-wrap gap-2 text-base font-bold mt-2">
-
-          {[
-            'Chaise',
-            'Table',
-            'Salon',
-            'Electronique et accessoire',
-          ].map((service) => {
-
-            const category = service as ServiceCategory;
-
-            return (
-              <button
-                key={service}
-                type="button"
-                onClick={() => setActiveService(category)}
-                className={`py-3 px-6 rounded-md transition-colors ${
-                  activeService === category
-                    ? 'bg-[#38bdf8] text-white'
-                    : 'bg-black text-white hover:bg-gray-800'
-                }`}
-              >
-                {t(service)}
-              </button>
-            );
-          })}
-
+          {(Object.keys(SERVICE_TABS) as ServiceCategory[]).map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => setActiveService(category)}
+              className={`py-3 px-6 rounded-md transition-colors ${
+                activeService === category
+                  ? 'bg-[#38bdf8] text-white'
+                  : 'bg-black text-white hover:bg-gray-800'
+              }`}
+            >
+              {t(category)}
+            </button>
+          ))}
         </div>
 
-        {/* SERVICES */}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-
           {currentServices.map((service) => {
-
             const selected = !!selectedServices[service.id];
             const quantity = selectedServices[service.id] || 0;
+            const unitLabel = service.unit === 'm2' ? 'm²' : t('Événement');
 
             return (
               <motion.div
@@ -1095,124 +815,126 @@ export default function ExposantInternationalForm() {
                     : 'border-gray-300 bg-[#f8fafc] hover:bg-gray-50'
                 }`}
               >
-
-                {/* SERVICE INFO */}
-
                 <div
                   className="flex flex-col gap-2 cursor-pointer flex-1 pr-4"
                   onClick={() => toggleService(service.id)}
                 >
-                  <span
-                    className={`font-bold text-sm ${
-                      selected ? 'text-[#38bdf8]' : 'text-black'
-                    }`}
-                  >
+                  <span className={`font-bold text-sm ${selected ? 'text-[#38bdf8]' : 'text-black'}`}>
                     {service.name}
                   </span>
-
-                  <span
-                    className={`text-sm ${
-                      selected ? 'text-gray-400' : 'text-gray-600'
-                    }`}
-                  >
-                    {formatDZD(service.price)} DA HT / {t('Événement')}
+                  <span className={`text-sm ${selected ? 'text-gray-400' : 'text-gray-600'}`}>
+                    {`${formatEUR(service.price)} HT / ${unitLabel}`}
                   </span>
-
-                  <span className="text-sm font-semibold text-gray-500">
-                    {exchangeRateLoading
-                      ? t('Conversion EUR...')
-                      : exchangeRateError
-                        ? t('EUR indisponible')
-                        : `≈ ${formatEUR(service.price)} / ${t('Événement')}`}
-                  </span>
+                  {selected && (
+                    <span className="text-sm font-semibold text-gray-400">
+                      {`${quantity} × ${formatEUR(service.price)} = ${formatEUR(service.price * quantity)}`}
+                    </span>
+                  )}
                 </div>
 
-                {/* RIGHT SIDE */}
-
                 <div className="flex items-center gap-3 shrink-0">
-
                   <button
                     type="button"
                     aria-label={`Sélectionner ${service.name}`}
+                    aria-pressed={selected}
                     onClick={() => toggleService(service.id)}
                     className={`w-6 h-6 rounded-full border-4 flex items-center justify-center ${
-                      selected
-                        ? 'border-[#38bdf8] bg-black'
-                        : 'border-gray-300 bg-black'
+                      selected ? 'border-[#38bdf8] bg-black' : 'border-gray-300 bg-black'
                     }`}
                   >
-                    {selected && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-[#38bdf8]" />
-                    )}
+                    {selected && <div className="w-2.5 h-2.5 rounded-full bg-[#38bdf8]" />}
                   </button>
 
                   {selected && (
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() =>
-                          changeQuantity(service.id, quantity - 1)
-                        }
+                        aria-label="Diminuer"
+                        onClick={() => changeQuantity(service.id, quantity - 1)}
                         className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
                       >
                         −
                       </button>
-
-                      <span className="w-8 text-center text-white font-bold">
-                        {quantity}
-                      </span>
-
+                      <span className="w-8 text-center text-white font-bold">{quantity}</span>
                       <button
                         type="button"
-                        onClick={() =>
-                          changeQuantity(service.id, quantity + 1)
-                        }
+                        aria-label="Augmenter"
+                        onClick={() => changeQuantity(service.id, quantity + 1)}
                         className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
                       >
                         +
                       </button>
                     </div>
                   )}
-
                 </div>
-
               </motion.div>
             );
           })}
-
         </div>
 
-        {/* SERVICES TOTAL */}
+        {/* HOSTESS — 100 € × people × days (max 4 days) */}
+        <div className="border border-gray-300 rounded-xl p-6 flex flex-col gap-4 bg-[#f8fafc]">
+          <label className="flex items-center gap-3 cursor-pointer w-fit text-sm font-bold text-black">
+            <input
+              type="checkbox"
+              checked={hostessSelected}
+              onChange={(e) => setHostessSelected(e.target.checked)}
+              className="w-5 h-5 accent-[#0ea5e9] rounded-sm"
+            />
+            {`${t("Hôtesse d'accueil")} — ${formatEUR(HOSTESS_RATE)} HT / ${t('personne')} / ${t('jour')}`}
+          </label>
 
-        <div className="border-t border-gray-200 pt-6 flex justify-between items-center">
-          <span className="text-xl font-bold text-black">
-            {t('Services supplémentaires :')}
-          </span>
-          <span className="text-2xl font-black text-[#0ea5e9]">
-            {renderPrice(totalAdditionalServices, 'DA HT')}
-          </span>
+          {hostessSelected && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-bold text-black">{t('Nombre de personnes')}</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={HOSTESS_MAX_PEOPLE}
+                  step={1}
+                  value={hostessCount}
+                  onChange={(e) => setHostessCount(clampInt(e.target.value, 1, HOSTESS_MAX_PEOPLE))}
+                  className={inputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-bold text-black">{t('Nombre de jours')}</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={HOSTESS_MAX_DAYS}
+                  step={1}
+                  value={hostessDays}
+                  onChange={(e) => setHostessDays(clampInt(e.target.value, 1, HOSTESS_MAX_DAYS))}
+                  className={inputClass}
+                />
+              </div>
+              <span className="text-sm font-bold text-black pb-2">
+                {`${HOSTESS_RATE} € × ${hostessCount} × ${hostessDays} = ${formatEUR(hostessTotal)}`}
+              </span>
+            </div>
+          )}
         </div>
 
+        <div className="border-t border-gray-200 pt-6 flex flex-col gap-3">
+          {priceRow('Services supplémentaires :', totalAdditionalServices)}
+          {priceRow('Hôtesses :', hostessTotal)}
+        </div>
       </div>
 
       {/* ========================================================== */}
       {/* 4 — SIGNALETIQUE                                           */}
       {/* ========================================================== */}
-
       <div className="bg-white rounded-xl p-8 md:p-12 flex flex-col gap-8">
-
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
           {t('SIGNALETIQUE DU STAND:')}
         </div>
 
-        {/* ENSEIGNE */}
-
         <div className="flex flex-col gap-1.5 mt-2">
-
           <label className="text-sm font-bold text-black">
-            {t("Nom de la société à faire figurer sur l'enseigne du stand (Maximum 20 caractères) :")}
+            {t("Nom de la société à faire figurer sur l'enseigne du stand (Maximum 20 caractères) :")} *
           </label>
-
           <input
             type="text"
             maxLength={20}
@@ -1220,93 +942,56 @@ export default function ExposantInternationalForm() {
             onChange={(e) => setNomEnseigne(e.target.value)}
             className={inputClass}
           />
-
           <span className="text-xs text-gray-500">
             {nomEnseigne.length}/20 {t('caractères')}
           </span>
-
         </div>
 
-        {/* BADGES / MACARONS */}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
-
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
               {t('Nombre de badges exposants (calculé automatiquement)')}
             </label>
-
             <input
               type="text"
-              value={nombreBadges === '' ? calculatedBadges : nombreBadges}
-              onChange={(e) => setNombreBadges(e.target.value)}
-              className={inputClass}
               readOnly
+              value={allocation ? String(badges) : t('Veuillez choisir la superficie')}
+              className={inputClass}
             />
           </div>
-
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">
               {t('Macarons (calculé automatiquement)')}
             </label>
-
             <input
               type="text"
-              value={macarons === '' ? calculatedMacarons : macarons}
-              onChange={(e) => setMacarons(e.target.value)}
-              className={inputClass}
               readOnly
+              value={allocation ? String(macarons) : t('Veuillez choisir la superficie')}
+              className={inputClass}
             />
           </div>
-
         </div>
-
-        {/* HOTESSE — previously sent as always false with no control */}
-
-        <label className="flex items-center gap-3 cursor-pointer w-fit text-sm font-bold text-black">
-          <input
-            type="checkbox"
-            checked={hostessSelected}
-            onChange={(e) => setHostessSelected(e.target.checked)}
-            className="w-5 h-5 accent-[#0ea5e9] rounded-sm"
-          />
-          {t('Je souhaite réserver une hôtesse')}
-        </label>
-
       </div>
 
       {/* ========================================================== */}
       {/* CONDITIONS DE PAIEMENT                                     */}
       {/* ========================================================== */}
-
       <div className="flex flex-col gap-6">
-
         <div className="bg-[#38bdf8] text-white font-bold py-2 px-6 rounded-md w-fit text-sm">
           {t('CONDITIONS DE PAIEMENT:')}
         </div>
 
         <p className="text-gray-300 text-sm leading-relaxed max-w-[1000px] mt-2">
-
           {t("Les frais de participation sont payables à 100 % après l'inscription et avant le 1er novembre 2025 par virement bancaire à l'ordre de:")}
-
           <br />
-
           {t('CAPA, Domicilié auprès de la Banque Crédit Populaire Algérie Agence colonel Amirouche Sous le numéro: RIB:')}
-
           <br />
-
           004001084010162524 25
-
           <br />
-
           SWIFT: CPALDZALXXX
-
         </p>
 
-        {/* CONDITIONS */}
-
         <div className="flex flex-col gap-4 text-white text-sm font-bold mt-2">
-
           <label className="flex items-center gap-3 cursor-pointer w-fit">
             <input
               type="checkbox"
@@ -1327,120 +1012,92 @@ export default function ExposantInternationalForm() {
             {t("Au cas d'annulation de l'exposant, ce dernier ne peut prétendre à aucun remboursement.")}
           </label>
 
-          <label className="flex items-center gap-3 cursor-pointer w-fit">
-            <input
-              type="checkbox"
-              checked={acceptConditions}
-              onChange={(e) => setAcceptConditions(e.target.checked)}
-              className="w-5 h-5 accent-white rounded-sm"
-            />
-            {t("J'accepte les conditions générales")}
-          </label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <input
+                id="accept-conditions"
+                type="checkbox"
+                checked={acceptConditions}
+                onChange={(e) => setAcceptConditions(e.target.checked)}
+                className="w-5 h-5 accent-white rounded-sm"
+              />
+              <label htmlFor="accept-conditions" className="cursor-pointer">
+                {t("J'accepte les conditions générales")}
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowConsent((v) => !v)}
+                aria-expanded={showConsent}
+                className="underline text-sky-300"
+              >
+                {showConsent ? t('Masquer') : t('Lire')}
+              </button>
+            </div>
 
+            {showConsent && (
+              <p className="bg-white/10 rounded-lg p-4 font-normal leading-relaxed max-w-[900px]">
+                {t("Je consens à ce que la Chambre Algérienne de la Pêche et de l'Aquaculture collecte et traite mes données à caractère personnel, que j'ai introduites dans ce formulaire, dans le cadre du traitement de ma demande en ligne, conformément à la loi 18-07 du 10 juin 2018 relative à la protection des personnes physiques dans le traitement des données à caractère personnel. La CAPA vous informe de vos droits à l'information, l'accès, la rectification et l'opposition au traitement de vos données à caractère personnel.")}
+              </p>
+            )}
+          </div>
         </div>
-
-        {/* CONFIRMATION */}
 
         <p className="text-gray-400 text-sm leading-relaxed mt-2">
           {t("Le soussigné confirme sa participation au 10ème Salon International de la Pêche et de l'Aquaculture qui se tiendra Du 06 Au 09 novembre 2025 au Centre de Conventions d'Oran et déclare avoir pris connaissance du règlement général du salon et s'engage à en respecter toutes les clauses et les conditions.")}
         </p>
 
-        {/* ======================================================== */}
-        {/* EXCHANGE RATE NOTICE                                      */}
-        {/* ======================================================== */}
+        {/* TOTAL */}
+        <div className="w-full bg-white rounded-xl mt-6 p-8 md:p-12 flex flex-col gap-4 shadow-lg">
+          {priceRow("Droits d'inscription", REGISTRATION_FEE, true)}
+          {priceRow('Stand', prixStand, true)}
+          {priceRow('Électricité', electricite, true)}
+          {priceRow('Façades', majoration, true)}
+          {priceRow('Publicité catalogue', publicite, true)}
+          {priceRow('Services supplémentaires', totalAdditionalServices, true)}
+          {priceRow('Hôtesses', hostessTotal, true)}
 
-        <div className="w-full bg-white/90 rounded-xl p-5 shadow-sm border border-gray-200">
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-bold text-gray-600">
-              Taux de change EUR automatique
-            </span>
+          <div className="border-t border-gray-200 my-2" />
 
-            <span className="text-sm text-gray-500">
-              {exchangeRateLoading
-                ? t('Récupération du taux actuel...')
-                : exchangeRateError
-                  ? t('Impossible de récupérer le taux EUR actuellement.')
-                  : `${exchangeRateLabel}${exchangeRateDate ? ` · Taux du ${exchangeRateDate}` : ''}`}
-            </span>
+          {priceRow('Total HT', totalHT, true)}
+          {priceRow('TVA (19%)', tva, true)}
 
-            <span className="text-xs text-gray-400">
-              {t("Les montants de référence restent en DA. Les montants en EUR sont calculés automatiquement à partir du taux récupéré par l'API.")}
-            </span>
-          </div>
-        </div>
-
-        {/* ======================================================== */}
-        {/* TOTAL                                                     */}
-        {/* ======================================================== */}
-
-        <div className="w-full bg-white rounded-xl mt-6 p-8 md:p-12 flex flex-col gap-8 shadow-lg">
-
-          <div className="flex justify-between items-center">
-            <span className="text-lg font-bold text-gray-600">
-              {t('Total HT')}
-            </span>
-            <span className="text-xl font-black text-black">
-              {renderPrice(totalHT)}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <span className="text-lg font-bold text-gray-600">
-              {t('TVA (19%)')}
-            </span>
-            <span className="text-xl font-black text-black">
-              {renderPrice(tva)}
-            </span>
-          </div>
-
-          <div className="border-t border-gray-200" />
+          <div className="border-t border-gray-200 my-2" />
 
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-
             <div className="flex flex-col gap-2 text-center md:text-left">
               <span className="text-2xl font-black text-black uppercase tracking-wide">
                 {t('Total à payer')}
               </span>
-              <span className="text-base font-bold text-gray-500">
-                {t('TVA (19%) incluse')}
-              </span>
+              <span className="text-base font-bold text-gray-500">{t('TVA (19%) incluse')}</span>
             </div>
-
-            <div className="flex flex-col items-center md:items-end text-4xl font-black text-[#0ea5e9]">
-              {renderPrice(totalTTC, 'DA TTC')}
-            </div>
-
+            <span className="text-4xl font-black text-[#0ea5e9]">{formatEUR(totalTTC)}</span>
           </div>
-
         </div>
-
-        {/* MESSAGE */}
 
         {message && (
           <p
-            className={`text-sm font-semibold ${
-              isSuccess ? 'text-green-400' : 'text-red-400'
-            }`}
+            role="status"
+            className={`text-sm font-semibold ${isSuccess ? 'text-green-400' : 'text-red-400'}`}
           >
             {message}
           </p>
         )}
 
-        {/* ======================================================== */}
-        {/* SUBMIT                                                     */}
-        {/* ======================================================== */}
-
+        {/* Only disabled while sending or after success, so the user
+            always sees why a submission is refused */}
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!canSubmit}
+          disabled={loading || submitted}
           className="bg-[#0ea5e9] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold h-[88px] rounded-xl text-2xl hover:bg-[#0284c7] transition-colors"
         >
-          {loading ? t('ENVOI...') : t('Soumettre la demande')}
+          {loading
+            ? t('ENVOI...')
+            : submitted
+              ? t('Demande envoyée')
+              : t('Envoyer la demande')}
         </button>
-
       </div>
-
     </div>
   );
 }

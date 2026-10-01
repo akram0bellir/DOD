@@ -15,16 +15,19 @@ export default function ExactSizeSquaresLayout() {
 
     handleResize();
     window.addEventListener('resize', handleResize);
+
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Original design dimensions
-  const blueWidth = 560;
-  const blueHeight = 580;
+  // Original design dimensions — DO NOT CHANGE
+  const blueWidth = 720;
+  const blueHeight = 700;
 
-  const greenSize = 350;
-  const redSize = 170;
-  const graySize = 100;
+  const greenSize = 270;
+  const greenSize2 = 220;
+
+  const redSize = 120;
+  const graySize = 80;
 
   const gapSmall = 16;
   const gapRedGreen = 40;
@@ -32,7 +35,7 @@ export default function ExactSizeSquaresLayout() {
   const s = (value: number) => value * ratio;
 
   // Images
-  const blueImage = '/ims/LSWRKXFNIOMES.png'; 
+  const blueImage = '/ims/LSWRKXFNIOMES.png';
 
   const redImages = [
     '/ims/YGDWHUAAAUATV.png',
@@ -40,11 +43,16 @@ export default function ExactSizeSquaresLayout() {
   ];
 
   const greenImages = [
-    '/ims/QUABEWLGVUZSGss.png',
-    '/ims/NHYRISMXITENV.jpeg',
     '/ims/EVOTQMKVLMUJO.jpeg',
     '/ims/PLIELONOOUSPM.png',
     '/ims/TYDSDCBHXJHJT.jpg',
+    '/ims/QUABEWLGVUZSGss.png',
+    '/ims/NHYRISMXITENV.jpeg',
+  ];
+
+  const greenImages2 = [
+    '/ims/TSRCIIOLHCOVA.jpg',
+    '/ims/TSRCIIOLHCOVA.jpg',
     '/ims/TSRCIIOLHCOVA.jpg',
     '/ims/ZCVCXHZVLGTXB.png',
   ];
@@ -59,133 +67,145 @@ export default function ExactSizeSquaresLayout() {
 
   return (
     <div
-      className="w-full min-h-screen bg-white flex items-center justify-center overflow-hidden"
+      className="w-full min-h-screen bg-white flex flex-col items-center overflow-hidden"
       style={{
         padding: s(32),
+        gap: s(16),
       }}
     >
+      {/* BLUE — ALONE AT THE TOP */}
       <div
-        className="flex items-start flex-shrink-0"
+        className="rounded-2xl overflow-hidden flex-shrink-0"
+        style={{
+          width: s(blueWidth),
+          height: s(blueHeight),
+        }}
+      >
+        <img
+          src={blueImage}
+          alt=""
+          className="w-full h-full object-contain"
+        />
+      </div>
+
+      {/* BENTO — EVERYTHING ELSE */}
+      <div
+        className="flex items-start"
         style={{
           gap: s(gapSmall),
         }}
       >
-        {/* LEFT COLUMN */}
+        {/* LEFT BENTO SECTION */}
         <div
-          className="flex flex-col flex-shrink-0"
+          className="flex flex-col"
           style={{
-            gap: s(gapSmall),
+            gap: s(24),
           }}
         >
-          {/* BLUE */}
+          {/* TWO GREEN IN ONE ROW */}
           <div
-            className="rounded-2xl overflow-hidden  flex-shrink-0"
+            className="grid grid-cols-2"
             style={{
-              width: s(blueWidth),
-              height: s(blueHeight),
+              gap: s(24),
             }}
           >
-            <img
-              src={blueImage}
-              alt=""
-              className="w-full h-full object-contain "
-            />
+            {greenImages2.slice(2).map((image, index) => (
+              <div
+                key={index}
+                className="rounded-2xl overflow-hidden flex-shrink-0"
+                style={{
+                  width: s(greenSize2),
+                  height: s(greenSize2),
+                }}
+              >
+                <img
+                  src={image}
+                  alt=""
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ))}
           </div>
 
-          {/* BOTTOM */}
+          {/* RED + GREEN */}
           <div
             className="flex items-start flex-shrink-0"
+            style={{
+              gap: s(gapRedGreen),
+            }}
+          >
+            {/* RED STACK */}
+            <div
+              className="flex flex-col flex-shrink-0"
+              style={{
+                gap: s(gapSmall),
+              }}
+            >
+              {redImages.map((image, index) => (
+                <div
+                  key={index}
+                  className="rounded-xl overflow-hidden flex-shrink-0"
+                  style={{
+                    width: s(redSize),
+                    height: s(redSize),
+                  }}
+                >
+                  <img
+                    src={image}
+                    alt=""
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* GREEN */}
+            <div
+              className="rounded-2xl overflow-hidden flex-shrink-0"
+              style={{
+                width: s(greenSize),
+                height: s(greenSize),
+              }}
+            >
+              <img
+                src={greenImages[0]}
+                alt=""
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </div>
+
+          {/* GRAY ROW */}
+          <div
+            className="flex flex-shrink-0"
             style={{
               gap: s(gapSmall),
             }}
           >
-            <div
-              className="flex flex-col flex-shrink-0"
-              style={{
-                gap: s(24),
-              }}
-            >
-              {/* RED + GREEN */}
+            {grayImages.map((image, index) => (
               <div
-                className="flex flex-row items-start flex-shrink-0"
+                key={index}
+                className="rounded-lg overflow-hidden flex-shrink-0"
                 style={{
-                  gap: s(gapRedGreen),
+                  width: s(graySize),
+                  height: s(graySize),
                 }}
               >
-                {/* RED STACK */}
-                <div
-                  className="flex flex-col flex-shrink-0"
-                  style={{
-                    gap: s(gapSmall),
-                  }}
-                >
-                  {redImages.map((image, index) => (
-                    <div
-                      key={index}
-                      className="rounded-xl overflow-hidden flex-shrink-0"
-                      style={{
-                        width: s(redSize),
-                        height: s(redSize),
-                      }}
-                    >
-                      <img
-                        src={image}
-                        alt=""
-                        className="w-full h-full object-contain "
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {/* GREEN */}
-                <div
-                  className="rounded-2xl overflow-hidden flex-shrink-0"
-                  style={{
-                    width: s(greenSize),
-                    height: s(greenSize),
-                  }}
-                >
-                  <img
-                    src={greenImages[0]}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+                <img
+                  src={image}
+                  alt=""
+                  className="w-full h-full object-contain"
+                />
               </div>
-
-              {/* GRAY ROW */}
-              <div
-                className="flex flex-shrink-0"
-                style={{
-                  gap: s(gapSmall),
-                }}
-              >
-                {grayImages.map((image, index) => (
-                  <div
-                    key={index}
-                    className="rounded-lg overflow-hidden flex-shrink-0"
-                    style={{
-                      width: s(graySize),
-                      height: s(graySize),
-                    }}
-                  >
-                    <img
-                      src={image}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT BENTO */}
         <div
           className="grid grid-cols-2 flex-shrink-0"
           style={{
-            gap: s(gapSmall),
+            gap: s(gapRedGreen),
           }}
         >
           {greenImages.slice(1).map((image, index) => (
@@ -200,7 +220,7 @@ export default function ExactSizeSquaresLayout() {
               <img
                 src={image}
                 alt=""
-                className="w-full h-full object-contain "
+                className="w-full h-full object-contain"
               />
             </div>
           ))}

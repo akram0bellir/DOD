@@ -1,9 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/lib/i18n';
+import { useDocuments } from '@/lib/useDocuments';
 
 export default function IntroSection() {
   const { t } = useLanguage();
+  const { urls: documentUrls } = useDocuments();
+  const ficheTechniqueUrl = documentUrls.Fiche_technique_SIPA ?? '/BASTMZELHBDMU.pdf';
   const paragraphs = [
     "Depuis plus de vingt ans, le Salon International de la Pêche et de l'Aquaculture (SIPA) s'affirme comme un carrefour essentiel de rencontres et d'échanges entre professionnels du secteur.",
     "Il offre une plateforme d'opportunités pour renforcer les liens entre les opérateurs nationaux et internationaux, facilitant ainsi l'identification de partenariats stratégiques et d'investissements dans le domaine de la pêche, de l'aquaculture et de leurs activités connexes.",
@@ -24,8 +27,8 @@ export default function IntroSection() {
           />
 
           <motion.a
-            href="/BASTMZELHBDMU.pdf"
-            download="BASTMZELHBDMU.pdf"
+            href={ficheTechniqueUrl}
+            download
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full bg-[#42a5f5] text-white py-4 rounded-md font-semibold flex items-center justify-center gap-2 cursor-pointer"

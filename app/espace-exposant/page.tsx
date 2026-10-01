@@ -7,10 +7,23 @@ import RegenerationFactureForm from '@/components/RegenerationFactureForm';
 import DemandeVisaForm from '@/components/DemandeVisaForm';
 import VisiteurB2BForm from '@/components/VisiteurB2BForm';
 import { useLanguage } from '@/lib/i18n';
+import { DocumentKey, useDocuments } from '@/lib/useDocuments';
+import { Download } from 'lucide-react';
+
+// Tab label -> file field in the PocketBase "Document" collection
+const TAB_DOCUMENTS: Record<string, DocumentKey> = {
+  'Exposant National': 'Exposant_National',
+  'Exposant International': 'Exposant_International',
+  'Regénération facture': 'Regeneration_facture',
+  'Demande Invitation Pour Visa': 'Demande_Invitation_Pour_Visa',
+  'Visiteur Professionnel B2B': 'Visiteur_Professionnel_B2B',
+};
 
 export default function EspaceExposantContainer() {
    const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('Exposant National');
+  const { urls: documentUrls } = useDocuments();
+  const activeDocumentUrl = documentUrls[TAB_DOCUMENTS[activeTab]];
 
   // Switch statement or mapping to render the right component dynamically
   const renderActiveForm = () => {
@@ -72,6 +85,20 @@ export default function EspaceExposantContainer() {
                {t('Visiteur Professionnel B2B')}
             </button>
          </div>
+
+         {/* Download the paper version of the active form */}
+         {activeDocumentUrl && (
+            <div className="flex justify-end">
+               <a
+                  href={activeDocumentUrl}
+                  download
+                  className="flex items-center gap-2 rounded-md bg-[#38bdf8] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#0ea5e9]"
+               >
+                  <Download className="h-4 w-4" />
+                  {t('Télécharger le formulaire')} — {t(activeTab)}
+               </a>
+            </div>
+         )}
 
          {/* Dynamic Component Insertion */}
          {renderActiveForm()}

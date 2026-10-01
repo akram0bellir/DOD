@@ -1,4 +1,4 @@
-// File: C:\Users\ASUS\Desktop\DOD\app\espace-exposant\page.tsx
+// File: E:\DOD\app\espace-exposant\page.tsx
 import * as entry from '../../../../app/espace-exposant/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
