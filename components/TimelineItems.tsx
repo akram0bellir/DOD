@@ -3,8 +3,10 @@
 import { motion, useScroll, useSpring, useTransform } from 'motion/react';
 import { useRef } from 'react';
 import { useLanguage } from '@/lib/i18n';
+import { localized, useCollection } from '@/lib/useCollection';
 
-const timelineItems = [
+/* Shown only while the "Timeline" collection is empty or unreachable. */
+const fallbackItems = [
   'Rencontrer des acheteurs qualifiés et des partenaires potentiels.',
   'Présenter vos produits et services à un public professionnel ciblé.',
   'Développer votre réseau et créer de nouvelles opportunités commerciales.',
@@ -12,8 +14,16 @@ const timelineItems = [
 ];
 
 export default function Timeline() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  /* text1…text4 of the latest PocketBase "Timeline" record */
+  const { records } = useCollection('Timeline');
+  const record = records[records.length - 1];
+  const dbItems = record
+    ? [1, 2, 3, 4].map((n) => localized(record, `text${n}`, locale)).filter(Boolean)
+    : [];
+  const timelineItems = dbItems.length > 0 ? dbItems : fallbackItems;
 
   const { scrollYProgress } = useScroll({
     target: timelineRef,

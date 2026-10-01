@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**', // This allows any path under the hostname
       },
+      {
+        // PocketBase files (banners, posters, media…)
+        protocol: 'https',
+        hostname: 'z4vu9pzwoklnupf.ba7w.pocketbasecloud.com',
+        port: '',
+        pathname: '/api/files/**',
+      },
     ],
   },
   output: 'standalone',

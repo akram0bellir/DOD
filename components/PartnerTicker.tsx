@@ -1,7 +1,15 @@
+'use client';
+
 import React from 'react';
+import { fileUrls, useCollection } from '@/lib/useCollection';
 
 export default function PartnerTicker() {
-  const partners = [
+  /* Logos from the PocketBase "Media" collection (field "picter") */
+  const { records, loading } = useCollection('Media');
+  const dbPartners = records.flatMap((record) => fileUrls(record, 'picter'));
+
+  /* Shown only while the "Media" collection is empty or unreachable. */
+  const fallbackPartners = [
     '/imm/CVXRXVNDQOVPD.png',
     '/imm/CZNGCRPRGROXX.png',
     '/imm/FGLDRMOHHHOGG.png',
@@ -12,6 +20,7 @@ export default function PartnerTicker() {
     '/imm/VZORYURSUQEYW.png',
     '/imm/DLKARJLSJEUXM.png',
   ];
+  const partners = dbPartners.length > 0 ? dbPartners : loading ? [] : fallbackPartners;
 
   return (
     <div className="w-full border-b border-gray-200 bg-white py-12 overflow-hidden">

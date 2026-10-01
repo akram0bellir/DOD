@@ -5,8 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useLanguage } from '@/lib/i18n';
+import { fileUrl, localized, useCollection } from '@/lib/useCollection';
 
-const slides = [
+type Slide = { id: string | number; image: string; alt: string; title: string };
+
+/* Shown only while the "banners" collection is empty or unreachable. */
+const fallbackSlides: Slide[] = [
   {
     id: 1,
     image: '/img/SJFWLPVLEWFNS.jpeg',
@@ -52,10 +56,24 @@ const slides = [
 ];
 
 export default function ImageCarouselBanner() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const currentSlide = slides[currentIndex];
+  /* Slides come from the PocketBase "banners" collection */
+  const { records, loading } = useCollection('banners');
+  const dbSlides: Slide[] = records
+    .map((record) => {
+      const title = localized(record, 'title', locale);
+      return { id: record.id, image: fileUrl(record, 'image') ?? '', alt: title || 'SIPA 2025', title };
+    })
+    .filter((slide) => slide.image);
+  const slides = dbSlides.length > 0 ? dbSlides : loading ? [] : fallbackSlides;
+
+  const currentSlide = slides[Math.min(currentIndex, slides.length - 1)];
+
+  if (!currentSlide) {
+    return <div className="relative mx-auto mt-8 mb-16 h-[90vh] max-h-[600px] w-[94vw] max-w-[1200px] animate-pulse rounded-[1.5rem] bg-[#d9d9d9] lg:w-[90vw] lg:rounded-[2rem]" />;
+  }
 
   return (
     <div

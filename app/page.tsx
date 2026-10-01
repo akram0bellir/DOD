@@ -9,6 +9,8 @@ import NestedSquaresLayout from '@/components/NestedSquaresLayout';
 import PartnerTicker from '@/components/PartnerTicker';
 import Timeline from '@/components/TimelineItems';
 import { useLanguage } from '@/lib/i18n';
+import { fileUrl, localized, useCollection } from '@/lib/useCollection';
+import { sanitizeHtml } from '@/lib/sanitizeHtml';
 
 const algeriaData = [
   { label: 'Nom officiel', value: 'République Démocratique Algérienne' },
@@ -37,7 +39,18 @@ const objectives = [
 ];
 
 export default function Home() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+
+  /* Objectives from the PocketBase "Objectif" collection. Each record is
+     one objective; a record whose text is already a list is shown as is. */
+  const { records: objectifRecords } = useCollection('Objectif');
+  const objectifHtml = objectifRecords
+    .map((record) => sanitizeHtml(localized(record, 'text', locale)))
+    .filter((html) => html.replace(/<[^>]*>/g, '').trim() !== '');
+  const objectifImage = objectifRecords
+    .map((record) => fileUrl(record, 'PICTER'))
+    .find(Boolean);
+
   return (
     <div className="flex flex-col items-center w-full bg-white pb-24">
        
@@ -79,11 +92,30 @@ export default function Home() {
       <div className="w-full max-w-[1200px] mx-auto px-6 py-20 flex flex-col md:flex-row gap-16 items-stretch">
          <div className="flex-1 flex flex-col">
             <h2 className="text-4xl font-bold text-sky-600 mb-8">{t('Objectif')}</h2>
-            <ul className="space-y-6 text-sm font-medium leading-relaxed list-disc pl-5 marker:text-black">
-               {objectives.map((objective) => <li key={objective}>{t(objective)}</li>)}
-            </ul>
+            {objectifHtml.length > 0 ? (
+               <div className="space-y-6 text-sm font-medium leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-6 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-6 [&_li]:marker:text-black [&_p]:mb-2 [&_a]:text-sky-600 [&_a]:underline">
+                  {objectifHtml.map((html, index) =>
+                     /<(ul|ol)[\s>]/i.test(html) ? (
+                        /* already a list: render it as is */
+                        <div key={index} dangerouslySetInnerHTML={{ __html: html }} />
+                     ) : (
+                        <ul key={index}>
+                           <li dangerouslySetInnerHTML={{ __html: html }} />
+                        </ul>
+                     )
+                  )}
+               </div>
+            ) : (
+               <ul className="space-y-6 text-sm font-medium leading-relaxed list-disc pl-5 marker:text-black">
+                  {objectives.map((objective) => <li key={objective}>{t(objective)}</li>)}
+               </ul>
+            )}
          </div>
-         <div className="w-full md:w-[350px] bg-[#d9d9d9] shrink-0 min-h-[500px]"></div>
+         <div className="w-full md:w-[350px] bg-[#d9d9d9] shrink-0 min-h-[500px] overflow-hidden">
+            {objectifImage && (
+               <img src={objectifImage} alt="" className="h-full w-full object-cover" />
+            )}
+         </div>
       </div>
 
       {/* L'Algérie Section - Sticky Layout */}
@@ -97,7 +129,7 @@ export default function Home() {
         {t("L'Algérie")}
       </h2>
 
-      <div className="flex flex-col gap-8 pb-[30vh]">
+      <div className="flex flex-col gap-8 md:pb-[30vh]">
         {algeriaData.map((item, index) => (
           <div key={index} className="flex flex-col gap-1">
             <h3 className="text-[#0ea5e9] text-lg font-semibold">
@@ -109,18 +141,22 @@ export default function Home() {
           </div>
         ))}
 
-        <div className="mt-8 border-t border-gray-200 pt-8"></div>
+        {/* Second copy only lengthens the column so the map stays
+            sticky on desktop; the map is hidden on phones, so is this. */}
+        <div className="hidden md:flex flex-col gap-8" aria-hidden="true">
+          <div className="mt-8 border-t border-gray-200 pt-8"></div>
 
-        {algeriaData.map((item, index) => (
-          <div key={`dup-${index}`} className="flex flex-col gap-1">
-            <h3 className="text-[#0ea5e9] text-lg font-semibold">
-              {t(item.label)}
-            </h3>
-            <p className="text-gray-800 text-lg font-medium">
-              {t(item.value)}
-            </p>
-          </div>
-        ))}
+          {algeriaData.map((item, index) => (
+            <div key={`dup-${index}`} className="flex flex-col gap-1">
+              <h3 className="text-[#0ea5e9] text-lg font-semibold">
+                {t(item.label)}
+              </h3>
+              <p className="text-gray-800 text-lg font-medium">
+                {t(item.value)}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
 

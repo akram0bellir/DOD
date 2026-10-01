@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { RecordModel } from 'pocketbase';
-import { pb } from '@/lib/pocketbase';
+import { fileUrl, useCollection } from '@/lib/useCollection';
 
 /* File fields of the PocketBase "Document" collection. */
 export type DocumentKey =
@@ -27,53 +25,18 @@ export const DOCUMENT_KEYS = Object.keys(DOCUMENT_LABELS) as DocumentKey[];
 
 export type DocumentUrls = Partial<Record<DocumentKey, string>>;
 
-/* Fetched once and shared by every component that uses the hook. */
-let documentsPromise: Promise<DocumentUrls> | null = null;
-
-function fetchDocuments(): Promise<DocumentUrls> {
-  if (!documentsPromise) {
-    documentsPromise = pb
-      .collection('Document')
-      .getList(1, 1, { requestKey: null })
-      .then((resultList) => {
-        const record: RecordModel | undefined = resultList.items[0];
-        const urls: DocumentUrls = {};
-        if (!record) return urls;
-
-        for (const key of DOCUMENT_KEYS) {
-          // A file field is a string, or an array when it allows several files.
-          const value = record[key];
-          const filename = Array.isArray(value) ? value[0] : value;
-          if (filename) {
-            urls[key] = pb.files.getURL(record, filename, { download: true });
-          }
-        }
-        return urls;
-      })
-      .catch((err) => {
-        console.error('PocketBase error (Document):', err);
-        documentsPromise = null; // allow a retry on next mount
-        return {};
-      });
-  }
-  return documentsPromise;
-}
-
+/* Download URL of each file. When several records exist, the most
+   recently added one that has a given file wins. */
 export function useDocuments() {
-  const [urls, setUrls] = useState<DocumentUrls>({});
-  const [loading, setLoading] = useState(true);
+  const { records, loading } = useCollection('Document');
 
-  useEffect(() => {
-    let active = true;
-    fetchDocuments().then((result) => {
-      if (!active) return;
-      setUrls(result);
-      setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const urls: DocumentUrls = {};
+  for (const record of records) {
+    for (const key of DOCUMENT_KEYS) {
+      const url = fileUrl(record, key, { download: true });
+      if (url) urls[key] = url;
+    }
+  }
 
   return { urls, loading };
 }
