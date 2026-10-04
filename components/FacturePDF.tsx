@@ -1,5 +1,8 @@
 import { Document, Page, Text, View, Image, StyleSheet, Svg, Path, Polygon, Defs, LinearGradient, Stop, Font } from '@react-pdf/renderer';
 
+import { Currency, fromEUR } from '@/lib/currency';
+import { serviceName } from '@/lib/serviceNames';
+
 /* The template never splits words with a hyphen. */
 Font.registerHyphenationCallback((word) => [word]);
 
@@ -151,31 +154,38 @@ const CATALOGUE_LABELS: Record<string, string> = {
   '1500': 'Publicité catalogue : 2ème page de couverture', '400': 'Publicité catalogue : 1/2 page intérieure couleur',
 };
 
-export function buildInvoiceLines(record: any): Line[] {
-  const isInternational = record.currency === 'EUR';
-  const rules = isInternational ? INTERNATIONAL : NATIONAL;
-  const surface = Number(record.surface || 0);
-  const standKey = String(record.stand_type ?? '');
-  const standRate = isInternational ? rules.standRates[standKey] ?? 0 : Number(record.stand_type || 0);
+/* International records are in EUR or USD; national ones in DA. */
+export const isInternationalRecord = (record: any) => record.currency === 'EUR' || record.currency === 'USD';
 
-  const lines: Line[] = [{ designation: rules.label, quantity: 1, unitPrice: rules.fee }];
+export function buildInvoiceLines(record: any): Line[] {
+  const isInternational = isInternationalRecord(record);
+  const rules = isInternational ? INTERNATIONAL : NATIONAL;
+  /* International tariff and facade / catalogue codes are in EUR:
+     convert them to the record's currency, like the form did. */
+  const tariff = (amount: number) => (isInternational ? fromEUR(amount, record.currency as Currency) : amount);
+
+  const surface = Number(record.surface || 0);
+  const standKey = String(record.stand_type ?? '').trim();
+  const standRate = isInternational ? tariff(rules.standRates[standKey] ?? 0) : Number(record.stand_type || 0);
+
+  const lines: Line[] = [{ designation: rules.label, quantity: 1, unitPrice: tariff(rules.fee) }];
 
   if (surface > 0) {
     lines.push({ designation: STAND_LABELS[standKey] ?? 'Stand', quantity: surface, unitPrice: standRate });
-    lines.push({ designation: 'Electricité par jour par m2', quantity: surface * EVENT_DAYS, unitPrice: rules.electricity });
+    lines.push({ designation: 'Electricité par jour par m2', quantity: surface * EVENT_DAYS, unitPrice: tariff(rules.electricity) });
   }
 
   if (record.facade) {
-    lines.push({ designation: FACADE_LABELS[String(record.facade)] ?? 'Majoration façades', quantity: 1, unitPrice: Number(record.facade) });
+    lines.push({ designation: FACADE_LABELS[String(record.facade)] ?? 'Majoration façades', quantity: 1, unitPrice: tariff(Number(record.facade)) });
   }
   if (record.catalogue) {
-    lines.push({ designation: CATALOGUE_LABELS[String(record.catalogue)] ?? 'Publicité catalogue', quantity: 1, unitPrice: Number(record.catalogue) });
+    lines.push({ designation: CATALOGUE_LABELS[String(record.catalogue)] ?? 'Publicité catalogue', quantity: 1, unitPrice: tariff(Number(record.catalogue)) });
   }
 
   const services: any[] = Array.isArray(record.ADDITIONAL_SERVICES) ? record.ADDITIONAL_SERVICES : [];
   for (const s of services) {
     const quantity = Number(s.qty || 1) * Number(s.days || 1);
-    lines.push({ designation: s.name, quantity, unitPrice: Number(s.price || 0) });
+    lines.push({ designation: serviceName(String(s.name ?? ''), 'fr'), quantity, unitPrice: Number(s.price || 0) });
   }
 
   /* International hostesses are stored outside ADDITIONAL_SERVICES */
@@ -183,7 +193,7 @@ export function buildInvoiceLines(record: any): Line[] {
     lines.push({
       designation: "Hôtesse d'accueil (par personne par jour)",
       quantity: Number(record.hostess_count) * Number(record.hostess_days || 1),
-      unitPrice: 100,
+      unitPrice: tariff(100),
     });
   }
 
@@ -231,9 +241,8 @@ function Decorations() {
 /* ================================================================ */
 
 export default function FacturePDF({ record, invoiceNumber }: { record: any; invoiceNumber?: string }) {
-  const isInternational = record.currency === 'EUR';
-  const currencyCode = isInternational ? 'EUR' : 'DA';
-  const currencyWords = isInternational ? 'Euros' : 'Dinars Algerien';
+  const currencyCode = isInternationalRecord(record) ? (record.currency as string) : 'DA';
+  const currencyWords = { EUR: 'Euros', USD: 'Dollars US', DA: 'Dinars Algerien' }[currencyCode] ?? currencyCode;
   const money = (value: number) => `${formatAmount(value)} ${currencyCode}`;
 
   const lines = buildInvoiceLines(record);

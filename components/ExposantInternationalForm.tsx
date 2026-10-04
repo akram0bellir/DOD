@@ -5,6 +5,8 @@ import { useState } from 'react';
 import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
 import { storeFacture } from '@/lib/facture';
+import { useCurrency } from '@/lib/currency';
+import { serviceName } from '@/lib/serviceNames';
 
 /* ================================================================ */
 /* POCKETBASE                                                        */
@@ -48,6 +50,14 @@ const HOSTESS_MAX_DAYS = 4;
 const HOSTESS_MAX_PEOPLE = 20; // sanity limit
 
 type StandTypeCode = 'amenage' | 'non_amenage' | 'decouvert';
+
+/* Values of the stand_type select in PocketBase. "non_amenage " really
+   has a trailing space there; any other spelling is rejected. */
+const PB_STAND_TYPE: Record<StandTypeCode, string> = {
+  amenage: 'amenage',
+  non_amenage: 'non_amenage ',
+  decouvert: 'decouvert',
+};
 
 const STAND_TYPES: {
   code: StandTypeCode;
@@ -223,14 +233,6 @@ const SERVICE_TABS: Record<ServiceCategory, Service[]> = {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-const formatEUR = (amount: number) =>
-  amount.toLocaleString('fr-FR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
 const clampInt = (value: string, min: number, max: number) => {
   const n = Math.floor(Number(value));
   if (!Number.isFinite(n)) return min;
@@ -244,7 +246,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /* ================================================================ */
 
 export default function ExposantInternationalForm() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
+  /* Tariff is in EUR; English shows and stores USD (see lib/currency.ts) */
+  const { currency, price, format: formatMoney } = useCurrency();
 
   /* ---------------- Participation ---------------- */
   const [raisonSociale, setRaisonSociale] = useState('');
@@ -305,18 +309,23 @@ export default function ExposantInternationalForm() {
     ? SURFACES.filter((s) => s >= standType.minSurface)
     : [];
 
-  const prixStand = standType ? standType.rate * surfaceM2 : 0;
-  const electricite = surfaceM2 * EVENT_DAYS * ELECTRICITY_RATE; // = 20 × S
+  /* Every amount below is in the current currency (EUR or USD) */
+  const registrationFee = price(REGISTRATION_FEE);
+  const electricityRate = price(ELECTRICITY_RATE);
+  const hostessRate = price(HOSTESS_RATE);
+
+  const prixStand = standType ? round2(price(standType.rate) * surfaceM2) : 0;
+  const electricite = round2(surfaceM2 * EVENT_DAYS * electricityRate); // = 20 × S in EUR
 
   const facade = FACADES.find((f) => f.code === facadeCode);
-  const majoration = facade?.price ?? 0;
+  const majoration = facade ? price(facade.price) : 0;
 
   const ad = ADS.find((a) => a.code === adCode);
-  const publicite = ad?.price ?? 0;
+  const publicite = ad ? price(ad.price) : 0;
 
   const selectedAdditionalServices = ALL_SERVICES.filter(
     (s) => selectedServices[s.id]
-  ).map((s) => ({ ...s, qty: selectedServices[s.id] }));
+  ).map((s) => ({ ...s, price: price(s.price), qty: selectedServices[s.id] }));
 
   const totalAdditionalServices = selectedAdditionalServices.reduce(
     (sum, s) => sum + s.price * s.qty,
@@ -324,11 +333,11 @@ export default function ExposantInternationalForm() {
   );
 
   const hostessTotal = hostessSelected
-    ? HOSTESS_RATE * hostessCount * hostessDays
+    ? round2(hostessRate * hostessCount * hostessDays)
     : 0;
 
   const totalHT = round2(
-    REGISTRATION_FEE +
+    registrationFee +
       prixStand +
       electricite +
       majoration +
@@ -473,7 +482,8 @@ export default function ExposantInternationalForm() {
       );
 
       /* Selections — the server hook recomputes every amount from these */
-      data.stand_type = choixStand; // text code, not a price
+      // Text code, not a price — sent exactly as the PocketBase select option.
+      data.stand_type = PB_STAND_TYPE[choixStand as StandTypeCode];
       data.surface = surfaceM2;
       if (facade) data.facade = facade.price;
       if (ad) data.catalogue = ad.price;
@@ -505,7 +515,10 @@ export default function ExposantInternationalForm() {
       data.total_ht = totalHT;
       data.tva = tva;
       data.total_ttc = totalTTC;
-      data.currency = 'EUR';
+      /* Amounts above are in this currency. facade / catalogue stay the
+         EUR option codes, because those PocketBase select fields only
+         accept the euro values. */
+      data.currency = currency;
       data.STATUS = 'received';
 
       const record = await pb.collection('Exposant_International').create(data);
@@ -568,7 +581,7 @@ export default function ExposantInternationalForm() {
         {t(label)}
       </span>
       <span className={strong ? 'text-xl font-black text-black' : 'text-xl font-bold text-black'}>
-        {formatEUR(amount)}
+        {formatMoney(amount)}
       </span>
     </div>
   );
@@ -665,7 +678,7 @@ export default function ExposantInternationalForm() {
             {t("Droits d'inscription:")}
           </span>
           <span className="text-black text-2xl font-bold">
-            {formatEUR(REGISTRATION_FEE)}
+            {formatMoney(registrationFee)}
           </span>
         </div>
       </div>
@@ -690,7 +703,7 @@ export default function ExposantInternationalForm() {
               <option value="">{t('Sélectionnez un stand')}</option>
               {STAND_TYPES.map((s) => (
                 <option key={s.code} value={s.code}>
-                  {`${t(s.label)} (${s.rate} €/m²)`}
+                  {`${t(s.label)} (${formatMoney(price(s.rate))}/m²)`}
                 </option>
               ))}
             </select>
@@ -731,7 +744,7 @@ export default function ExposantInternationalForm() {
               <option value="">{t('Sans façade supplémentaire')}</option>
               {FACADES.map((f) => (
                 <option key={f.code} value={f.code}>
-                  {`${t(f.label)} — ${formatEUR(f.price)}`}
+                  {`${t(f.label)} — ${formatMoney(price(f.price))}`}
                 </option>
               ))}
             </select>
@@ -750,7 +763,7 @@ export default function ExposantInternationalForm() {
               <option value="">{t('Sans publicité')}</option>
               {ADS.map((a) => (
                 <option key={a.code} value={a.code}>
-                  {`${t(a.label)} — ${formatEUR(a.price)}`}
+                  {`${t(a.label)} — ${formatMoney(price(a.price))}`}
                 </option>
               ))}
             </select>
@@ -766,7 +779,7 @@ export default function ExposantInternationalForm() {
           <div className="flex flex-col gap-1">
             {priceRow('Électricité :', electricite)}
             <span className="text-xs text-gray-500">
-              {`${surfaceM2} m² × ${EVENT_DAYS} ${t('jours')} × ${ELECTRICITY_RATE} €`}
+              {`${surfaceM2} m² × ${EVENT_DAYS} ${t('jours')} × ${formatMoney(electricityRate)}`}
             </span>
           </div>
           {priceRow('Façades :', majoration)}
@@ -820,14 +833,14 @@ export default function ExposantInternationalForm() {
                   onClick={() => toggleService(service.id)}
                 >
                   <span className={`font-bold text-sm ${selected ? 'text-[#38bdf8]' : 'text-black'}`}>
-                    {service.name}
+                    {serviceName(service.name, locale)}
                   </span>
                   <span className={`text-sm ${selected ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {`${formatEUR(service.price)} HT / ${unitLabel}`}
+                    {`${formatMoney(price(service.price))} HT / ${unitLabel}`}
                   </span>
                   {selected && (
                     <span className="text-sm font-semibold text-gray-400">
-                      {`${quantity} × ${formatEUR(service.price)} = ${formatEUR(service.price * quantity)}`}
+                      {`${quantity} × ${formatMoney(price(service.price))} = ${formatMoney(round2(price(service.price) * quantity))}`}
                     </span>
                   )}
                 </div>
@@ -835,7 +848,7 @@ export default function ExposantInternationalForm() {
                 <div className="flex items-center gap-3 shrink-0">
                   <button
                     type="button"
-                    aria-label={`Sélectionner ${service.name}`}
+                    aria-label={`${t('Sélectionner')} ${serviceName(service.name, locale)}`}
                     aria-pressed={selected}
                     onClick={() => toggleService(service.id)}
                     className={`w-6 h-6 rounded-full border-4 flex items-center justify-center ${
@@ -849,7 +862,7 @@ export default function ExposantInternationalForm() {
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        aria-label="Diminuer"
+                        aria-label={t('Diminuer')}
                         onClick={() => changeQuantity(service.id, quantity - 1)}
                         className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
                       >
@@ -858,7 +871,7 @@ export default function ExposantInternationalForm() {
                       <span className="w-8 text-center text-white font-bold">{quantity}</span>
                       <button
                         type="button"
-                        aria-label="Augmenter"
+                        aria-label={t('Augmenter')}
                         onClick={() => changeQuantity(service.id, quantity + 1)}
                         className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
                       >
@@ -881,7 +894,7 @@ export default function ExposantInternationalForm() {
               onChange={(e) => setHostessSelected(e.target.checked)}
               className="w-5 h-5 accent-[#0ea5e9] rounded-sm"
             />
-            {`${t("Hôtesse d'accueil")} — ${formatEUR(HOSTESS_RATE)} HT / ${t('personne')} / ${t('jour')}`}
+            {`${t("Hôtesse d'accueil")} — ${formatMoney(hostessRate)} HT / ${t('personne')} / ${t('jour')}`}
           </label>
 
           {hostessSelected && (
@@ -911,7 +924,7 @@ export default function ExposantInternationalForm() {
                 />
               </div>
               <span className="text-sm font-bold text-black pb-2">
-                {`${HOSTESS_RATE} € × ${hostessCount} × ${hostessDays} = ${formatEUR(hostessTotal)}`}
+                {`${formatMoney(hostessRate)} × ${hostessCount} × ${hostessDays} = ${formatMoney(hostessTotal)}`}
               </span>
             </div>
           )}
@@ -1048,7 +1061,7 @@ export default function ExposantInternationalForm() {
 
         {/* TOTAL */}
         <div className="w-full bg-white rounded-xl mt-6 p-8 md:p-12 flex flex-col gap-4 shadow-lg">
-          {priceRow("Droits d'inscription", REGISTRATION_FEE, true)}
+          {priceRow("Droits d'inscription", registrationFee, true)}
           {priceRow('Stand', prixStand, true)}
           {priceRow('Électricité', electricite, true)}
           {priceRow('Façades', majoration, true)}
@@ -1070,7 +1083,7 @@ export default function ExposantInternationalForm() {
               </span>
               <span className="text-base font-bold text-gray-500">{t('TVA (19%) incluse')}</span>
             </div>
-            <span className="text-4xl font-black text-[#0ea5e9]">{formatEUR(totalTTC)}</span>
+            <span className="text-4xl font-black text-[#0ea5e9]">{formatMoney(totalTTC)}</span>
           </div>
         </div>
 

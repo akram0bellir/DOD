@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { useState } from 'react';
 import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
+import { serviceName } from '@/lib/serviceNames';
 import { storeFacture } from '@/lib/facture';
 
 /* ================================================================ */
@@ -298,7 +299,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /* ================================================================ */
 
 export default function ExposantNationalForm() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   const [activeService, setActiveService] =
     useState<ServiceCategory>('Chaise');
@@ -969,7 +970,7 @@ export default function ExposantNationalForm() {
                         selected ? 'text-[#38bdf8]' : 'text-black'
                       }`}
                     >
-                      {t(service.name)}
+                      {serviceName(service.name, locale)}
                     </span>
 
                     <span
@@ -986,7 +987,7 @@ export default function ExposantNationalForm() {
 
                     <button
                       type="button"
-                      aria-label={`Sélectionner ${service.name}`}
+                      aria-label={`${t('Sélectionner')} ${serviceName(service.name, locale)}`}
                       aria-pressed={selected}
                       onClick={() => toggleService(service.id)}
                       className={`w-6 h-6 rounded-full border-4 flex items-center justify-center ${
@@ -1004,7 +1005,7 @@ export default function ExposantNationalForm() {
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          aria-label="Diminuer"
+                          aria-label={t('Diminuer')}
                           onClick={() => changeQuantity(service.id, quantity - 1)}
                           className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
                         >
@@ -1020,7 +1021,7 @@ export default function ExposantNationalForm() {
 
                         <button
                           type="button"
-                          aria-label="Augmenter"
+                          aria-label={t('Augmenter')}
                           onClick={() => changeQuantity(service.id, quantity + 1)}
                           className="w-8 h-8 rounded bg-white text-black font-bold hover:bg-gray-200"
                         >

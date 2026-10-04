@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
+import { fromEUR, useCurrency } from '@/lib/currency';
+
+/* Registration fees: national in DA, international defined in EUR
+   (shown in USD for English visitors, see lib/currency.ts). */
+const FEE_NATIONAL_DA = 15000;
+const FEE_INTERNATIONAL_EUR = 250;
 
 // These MUST match the option values declared on the Secteur_dactivite
 // field in PocketBase, character for character, accents included.
@@ -41,6 +47,7 @@ function describePbError(error: unknown): string {
 
 export default function VisiteurB2BForm() {
   const { t } = useLanguage();
+  const { price, format: formatMoney } = useCurrency();
 
   // =========================
   // FORM STATES
@@ -110,9 +117,14 @@ export default function VisiteurB2BForm() {
 
       // Empty strings are rejected by non-text field types (url, email,
       // number, date). Optional blanks are simply not sent.
-      const data = Object.fromEntries(
+      const data: Record<string, unknown> = Object.fromEntries(
         Object.entries(values).filter(([, v]) => v !== '')
       );
+
+      /* Registration fee in each currency (number fields dz / erro / dollar) */
+      data.dz = FEE_NATIONAL_DA;
+      data.erro = FEE_INTERNATIONAL_EUR;
+      data.dollar = fromEUR(FEE_INTERNATIONAL_EUR, 'USD');
 
       const record = await pb
         .collection('Visiteur_professionnel_B2B')
@@ -417,7 +429,7 @@ export default function VisiteurB2BForm() {
         <div className="flex flex-col gap-1 mt-2">
           <div className="flex items-center gap-2">
             <span className="text-[#0ea5e9] text-2xl font-bold">
-              15 000 DA
+              {FEE_NATIONAL_DA.toLocaleString('fr-FR')} DA
             </span>
 
             <span className="text-black text-base font-semibold">
@@ -427,7 +439,7 @@ export default function VisiteurB2BForm() {
 
           <div className="flex items-center gap-2">
             <span className="text-[#0ea5e9] text-2xl font-bold">
-              250 €
+              {formatMoney(price(FEE_INTERNATIONAL_EUR))}
             </span>
 
             <span className="text-black text-base font-semibold">

@@ -27,5 +27,25 @@ export async function storeFacture(record: RecordModel): Promise<RecordModel> {
     type: 'application/pdf',
   });
 
-  return pb.collection('FACTURE').create({ FACTURE: file });
+  const facture = await pb.collection('FACTURE').create({ FACTURE: file });
+
+  /* Email it to the RESEVER address of the "smtp" collection. Done by the
+     server (app/api/send-facture) so SMTP credentials stay private.
+     A failed email is logged but does not undo the stored invoice. */
+  try {
+    const response = await fetch('/api/send-facture', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        factureId: facture.id,
+        exposantCollection: record.collectionName,
+        exposantId: record.id,
+      }),
+    });
+    if (!response.ok) console.error('Facture email not sent:', await response.text());
+  } catch (emailError) {
+    console.error('Facture email not sent:', emailError);
+  }
+
+  return facture;
 }
