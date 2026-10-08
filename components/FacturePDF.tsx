@@ -2,6 +2,7 @@ import { Document, Page, Text, View, Image, StyleSheet, Svg, Path, Polygon, Defs
 
 import { Currency, fromEUR } from '@/lib/currency';
 import { serviceName } from '@/lib/serviceNames';
+import { CATALOGUE_CODE, FACADE_CODE, STAND_CODE, type Tariff } from '@/lib/tariff';
 
 /* The template never splits words with a hyphen. */
 Font.registerHyphenationCallback((word) => [word]);
@@ -157,7 +158,9 @@ const CATALOGUE_LABELS: Record<string, string> = {
 /* International records are in EUR or USD; national ones in DA. */
 export const isInternationalRecord = (record: any) => record.currency === 'EUR' || record.currency === 'USD';
 
-export function buildInvoiceLines(record: any): Line[] {
+/* `prices` is the PocketBase tariff the form used (in the record's
+   currency). Without it the built-in tariff is used. */
+export function buildInvoiceLines(record: any, prices?: Tariff): Line[] {
   const isInternational = isInternationalRecord(record);
   const rules = isInternational ? INTERNATIONAL : NATIONAL;
   /* International tariff and facade / catalogue codes are in EUR:
@@ -166,9 +169,15 @@ export function buildInvoiceLines(record: any): Line[] {
 
   const surface = Number(record.surface || 0);
   const standKey = String(record.stand_type ?? '').trim();
-  const standRate = isInternational ? tariff(rules.standRates[standKey] ?? 0) : Number(record.stand_type || 0);
+  const standCode = STAND_CODE[standKey];
+  const standRate =
+    prices && standCode
+      ? prices.stand[standCode]
+      : isInternational
+        ? tariff(rules.standRates[standKey] ?? 0)
+        : Number(record.stand_type || 0);
 
-  const lines: Line[] = [{ designation: rules.label, quantity: 1, unitPrice: tariff(rules.fee) }];
+  const lines: Line[] = [{ designation: rules.label, quantity: 1, unitPrice: prices ? prices.registration : tariff(rules.fee) }];
 
   if (surface > 0) {
     lines.push({ designation: STAND_LABELS[standKey] ?? 'Stand', quantity: surface, unitPrice: standRate });
@@ -176,10 +185,14 @@ export function buildInvoiceLines(record: any): Line[] {
   }
 
   if (record.facade) {
-    lines.push({ designation: FACADE_LABELS[String(record.facade)] ?? 'Majoration façades', quantity: 1, unitPrice: tariff(Number(record.facade)) });
+    const code = FACADE_CODE[String(record.facade)];
+    const unitPrice = prices && code ? prices.facade[code] : tariff(Number(record.facade));
+    lines.push({ designation: FACADE_LABELS[String(record.facade)] ?? 'Majoration façades', quantity: 1, unitPrice });
   }
   if (record.catalogue) {
-    lines.push({ designation: CATALOGUE_LABELS[String(record.catalogue)] ?? 'Publicité catalogue', quantity: 1, unitPrice: tariff(Number(record.catalogue)) });
+    const code = CATALOGUE_CODE[String(record.catalogue)];
+    const unitPrice = prices && code ? prices.catalogue[code] : tariff(Number(record.catalogue));
+    lines.push({ designation: CATALOGUE_LABELS[String(record.catalogue)] ?? 'Publicité catalogue', quantity: 1, unitPrice });
   }
 
   const services: any[] = Array.isArray(record.ADDITIONAL_SERVICES) ? record.ADDITIONAL_SERVICES : [];
@@ -240,12 +253,12 @@ function Decorations() {
 /* DOCUMENT                                                          */
 /* ================================================================ */
 
-export default function FacturePDF({ record, invoiceNumber }: { record: any; invoiceNumber?: string }) {
+export default function FacturePDF({ record, invoiceNumber, prices }: { record: any; invoiceNumber?: string; prices?: Tariff }) {
   const currencyCode = isInternationalRecord(record) ? (record.currency as string) : 'DA';
   const currencyWords = { EUR: 'Euros', USD: 'Dollars US', DA: 'Dinars Algerien' }[currencyCode] ?? currencyCode;
   const money = (value: number) => `${formatAmount(value)} ${currencyCode}`;
 
-  const lines = buildInvoiceLines(record);
+  const lines = buildInvoiceLines(record, prices);
   const montant = Math.round(lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0) * 100) / 100;
   const tva = Math.round(montant * 0.19 * 100) / 100;
   const totalTTC = Math.round((montant + tva) * 100) / 100;

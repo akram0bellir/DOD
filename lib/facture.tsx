@@ -4,6 +4,7 @@ import { pdf } from '@react-pdf/renderer';
 import type { RecordModel } from 'pocketbase';
 import { pb } from '@/lib/pocketbase';
 import FacturePDF from '@/components/FacturePDF';
+import type { Tariff } from '@/lib/tariff';
 
 /* Next invoice number, "0001", "0002"… based on how many invoices exist.
    Needs a public List rule on FACTURE; otherwise falls back to the record id. */
@@ -18,10 +19,11 @@ async function nextInvoiceNumber(record: RecordModel): Promise<string> {
 
 /* Renders the invoice of an exhibitor record to a PDF and stores it in
    the PocketBase "FACTURE" collection (file field "FACTURE").
-   Uses the record returned by create() so amounts are the server's. */
-export async function storeFacture(record: RecordModel): Promise<RecordModel> {
+   Uses the record returned by create() so amounts are the server's,
+   priced with the PocketBase tariff the form showed (`prices`). */
+export async function storeFacture(record: RecordModel, prices?: Tariff): Promise<RecordModel> {
   const invoiceNumber = await nextInvoiceNumber(record);
-  const blob = await pdf(<FacturePDF record={record} invoiceNumber={invoiceNumber} />).toBlob();
+  const blob = await pdf(<FacturePDF record={record} invoiceNumber={invoiceNumber} prices={prices} />).toBlob();
 
   const file = new File([blob], `facture_${invoiceNumber}_${new Date().getFullYear()}.pdf`, {
     type: 'application/pdf',

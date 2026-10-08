@@ -1,12 +1,15 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
 import { storeFacture } from '@/lib/facture';
+import { canonicalCountry, canonicalWilaya, isAlgeria } from '@/lib/location';
+import LocationField from '@/components/LocationField';
 import { useCurrency } from '@/lib/currency';
 import { serviceName } from '@/lib/serviceNames';
+import { useTariff, type CatalogueCode, type FacadeCode, type ServiceCategory } from '@/lib/tariff';
 
 /* ================================================================ */
 /* POCKETBASE                                                        */
@@ -36,12 +39,14 @@ function describePbError(error: unknown): string {
 }
 
 /* ================================================================ */
-/* OFFICIAL TARIFF — SIPA international exhibitors, fixed EUR HT    */
-/* Same values as the original sipalgerie.dz page.                   */
-/* The server hook (pb_hooks) must hold the same numbers.            */
+/* TARIFF — SIPA international exhibitors, HT                        */
+/* Registration, stand, façade, catalogue and furniture prices come  */
+/* from PocketBase: "price_ERRO" + *_erro catalogues in euros,        */
+/* "price_dollar" + *_dollar catalogues in dollars (lib/tariff.ts).  */
+/* The EUR prices written here are the fallbacks. Electricity and    */
+/* hostesses stay fixed in EUR (converted for USD).                  */
 /* ================================================================ */
 
-const REGISTRATION_FEE = 350; // flat
 const ELECTRICITY_RATE = 5; // € per m² per day
 const EVENT_DAYS = 4; // 06 → 09 November
 const VAT_RATE = 0.19;
@@ -62,12 +67,10 @@ const PB_STAND_TYPE: Record<StandTypeCode, string> = {
 const STAND_TYPES: {
   code: StandTypeCode;
   label: string;
-  rate: number;
-  minSurface: number;
 }[] = [
-  { code: 'amenage', label: 'Stand aménagé', rate: 250, minSurface: 12 },
-  { code: 'non_amenage', label: 'Stand non aménagé', rate: 200, minSurface: 12 },
-  { code: 'decouvert', label: 'Emplacement découvert', rate: 150, minSurface: 48 },
+  { code: 'amenage', label: 'Stand aménagé' },
+  { code: 'non_amenage', label: 'Stand non aménagé' },
+  { code: 'decouvert', label: 'Emplacement découvert' },
 ];
 
 const SURFACES = [12, 18, 24, 36, 48, 54, 60, 72, 80, 100, 120, 150, 200, 250, 300];
@@ -91,17 +94,19 @@ const ALLOCATIONS: Record<number, { badges: number; macarons: number }> = {
   300: { badges: 12, macarons: 5 },
 };
 
-const FACADES = [
-  { code: '2', label: 'Emplacement à 02 façades', price: 250 },
-  { code: '3', label: 'Emplacement à 03 façades', price: 350 },
-  { code: '4', label: 'Emplacement à 04 façades', price: 400 },
+/* `value` is the PocketBase select option (the original EUR price),
+   sent unchanged; the amount charged comes from the tariff. */
+const FACADES: { code: FacadeCode; label: string; value: number }[] = [
+  { code: '2', label: 'Emplacement à 02 façades', value: 250 },
+  { code: '3', label: 'Emplacement à 03 façades', value: 350 },
+  { code: '4', label: 'Emplacement à 04 façades', value: 400 },
 ];
 
-const ADS = [
-  { code: 'cover4', label: '4ème page de couverture', price: 2000 },
-  { code: 'cover3', label: '3ème page de couverture', price: 1600 },
-  { code: 'cover2', label: '2ème page de couverture', price: 1500 },
-  { code: 'half', label: '1/2 page intérieure couleur', price: 400 },
+const ADS: { code: CatalogueCode; label: string; value: number }[] = [
+  { code: 'cover4', label: '4ème page de couverture', value: 2000 },
+  { code: 'cover3', label: '3ème page de couverture', value: 1600 },
+  { code: 'cover2', label: '2ème page de couverture', value: 1500 },
+  { code: 'half', label: '1/2 page intérieure couleur', value: 400 },
 ];
 
 const SECTORS = [
@@ -146,88 +151,6 @@ const SECTORS = [
 const OTHER_SECTOR_ID = '37';
 
 /* ================================================================ */
-/* SERVICES — EUR HT, ids kept from your version                    */
-/* ================================================================ */
-
-type Service = {
-  id: string;
-  name: string;
-  price: number;
-  unit?: 'event' | 'm2';
-};
-
-const CHAIRS: Service[] = [
-  { id: 'c1', name: 'ALINEA B chair', price: 55 },
-  { id: 'c2', name: 'EVEREST B chair', price: 20 },
-  { id: 'c3', name: 'CONFORT high chair', price: 60 },
-  { id: 'c4', name: 'SIMILI high chair, black', price: 45 },
-  { id: 'c5', name: 'OR chair, red and beige', price: 20 },
-  { id: 'c6', name: 'PATCHWORK chair, grey', price: 70 },
-  { id: 'c7', name: 'RÉUNION N chair', price: 20 },
-  { id: 'c8', name: 'SCANDINAVE B chair', price: 35 },
-];
-
-const TABLES: Service[] = [
-  { id: 't1', name: 'STANDARD desk (80×35×90)', price: 90 },
-  { id: 't2', name: 'STANDARD desk with panelling', price: 120 },
-  { id: 't3', name: 'ROUNDED large table (120×90)', price: 120 },
-  { id: 't4', name: 'SIMPLY large table (120×70)', price: 120 },
-  { id: 't5', name: 'ATELIER table (140×65×70)', price: 90 },
-  { id: 't6', name: 'TRIPODE coffee table (Ø60×60)', price: 70 },
-  { id: 't7', name: 'CLASSIC high table (Ø60)', price: 70 },
-  { id: 't8', name: 'SCANDINAVE high table (Ø60×100)', price: 65 },
-  { id: 't9', name: 'RONDE table (Ø80×70)', price: 40 },
-  { id: 't10', name: 'SCANDINAVE square glass table (85×85×75)', price: 70 },
-  { id: 't11', name: 'SCANDINAVE round glass table (Ø80×75)', price: 60 },
-];
-
-const LOUNGE: Service[] = [
-  { id: 's1', name: 'Premium lounge set, 4 seats + coffee table (red)', price: 500 },
-  { id: 's2', name: 'Standard lounge chair, black, 1 seat', price: 60 },
-  { id: 's3', name: 'Standard lounge set, black, 4 seats + coffee table', price: 210 },
-  { id: 's4', name: 'VIP lounge set, 4 seats + coffee table', price: 415 },
-  { id: 's5', name: 'STANDARD coffee table', price: 45 },
-];
-
-const ELECTRONICS: Service[] = [
-  { id: 'e1', name: 'Plastic waste bin', price: 5 },
-  { id: 'e2', name: 'Metal waste bin', price: 10 },
-  { id: 'e3', name: '32" LED TV screen', price: 160 },
-  { id: 'e4', name: '43" LED TV screen', price: 200 },
-  { id: 'e5', name: '50" LED TV screen', price: 300 },
-  { id: 'e6', name: '55" LED TV screen', price: 400 },
-  { id: 'e7', name: '65" LED TV screen', price: 840 },
-  { id: 'e8', name: 'Metal shelving unit', price: 50 },
-  { id: 'e9', name: 'Guide line stand', price: 40 },
-  { id: 'e10', name: 'Capsule coffee machine', price: 135 },
-  { id: 'e11', name: 'Carpet', price: 15, unit: 'm2' },
-  { id: 'e12', name: 'Power strips', price: 5 },
-  { id: 'e13', name: 'Artificial plants', price: 45 },
-  { id: 'e14', name: 'A4 literature stand (MB27-M)', price: 135 },
-  { id: 'e15', name: 'A4 literature stand (MB27-P)', price: 65 },
-  { id: 'e16', name: 'A4 literature stand (MB27-PM)', price: 55 },
-  { id: 'e17', name: 'Aluminium storage door', price: 135 },
-  { id: 'e18', name: 'Lectern', price: 135 },
-  { id: 'e19', name: '90L refrigerator', price: 85 },
-  { id: 'e20', name: '3-spot electrical strip', price: 27 },
-  { id: 'e21', name: 'Floor-standing TV mount', price: 200 },
-  { id: 'e22', name: 'Display case MB26-BI', price: 175 },
-  { id: 'e23', name: 'Display case MB26-CO', price: 140 },
-  { id: 'e24', name: 'Display case MB26-UN', price: 140 },
-];
-
-const ALL_SERVICES: Service[] = [...CHAIRS, ...TABLES, ...LOUNGE, ...ELECTRONICS];
-
-type ServiceCategory = 'Chaise' | 'Table' | 'Salon' | 'Electronique et accessoire';
-
-const SERVICE_TABS: Record<ServiceCategory, Service[]> = {
-  Chaise: CHAIRS,
-  Table: TABLES,
-  Salon: LOUNGE,
-  'Electronique et accessoire': ELECTRONICS,
-};
-
-/* ================================================================ */
 /* HELPERS                                                           */
 /* ================================================================ */
 
@@ -247,8 +170,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ExposantInternationalForm() {
   const { t, locale } = useLanguage();
-  /* Tariff is in EUR; English shows and stores USD (see lib/currency.ts) */
+  /* French / Arabic: EUR tariff; English: USD tariff (see lib/currency.ts) */
   const { currency, price, format: formatMoney } = useCurrency();
+  const { tariff, loading: tariffLoading } = useTariff(currency);
+
+  /* SERVICES SUPPLEMENTAIRES: only the PocketBase catalogues
+     (*_erro in EUR, *_dollar in USD) — no local list. */
+  const serviceTabs = tariff.services;
+  const allServices = useMemo(() => Object.values(serviceTabs).flat(), [serviceTabs]);
 
   /* ---------------- Participation ---------------- */
   const [raisonSociale, setRaisonSociale] = useState('');
@@ -265,6 +194,9 @@ export default function ExposantInternationalForm() {
   const [ville, setVille] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
+
+  /* The city is matched against the wilayas only for Algeria. */
+  const villeIsWilaya = isAlgeria(pays);
 
   /* ---------------- Stand ---------------- */
   const [choixStand, setChoixStand] = useState<StandTypeCode | ''>('');
@@ -304,28 +236,26 @@ export default function ExposantInternationalForm() {
   const standType = STAND_TYPES.find((s) => s.code === choixStand);
   const surfaceM2 = Number(superficie || 0);
 
-  // Outdoor space starts at 48 m², like the original page
-  const availableSurfaces = standType
-    ? SURFACES.filter((s) => s >= standType.minSurface)
-    : [];
+  // Every surface is offered for every stand type
+  const availableSurfaces = SURFACES;
 
   /* Every amount below is in the current currency (EUR or USD) */
-  const registrationFee = price(REGISTRATION_FEE);
+  const registrationFee = tariff.registration;
   const electricityRate = price(ELECTRICITY_RATE);
   const hostessRate = price(HOSTESS_RATE);
 
-  const prixStand = standType ? round2(price(standType.rate) * surfaceM2) : 0;
+  const prixStand = standType ? round2(tariff.stand[standType.code] * surfaceM2) : 0;
   const electricite = round2(surfaceM2 * EVENT_DAYS * electricityRate); // = 20 × S in EUR
 
   const facade = FACADES.find((f) => f.code === facadeCode);
-  const majoration = facade ? price(facade.price) : 0;
+  const majoration = facade ? tariff.facade[facade.code] : 0;
 
   const ad = ADS.find((a) => a.code === adCode);
-  const publicite = ad ? price(ad.price) : 0;
+  const publicite = ad ? tariff.catalogue[ad.code] : 0;
 
-  const selectedAdditionalServices = ALL_SERVICES.filter(
+  const selectedAdditionalServices = allServices.filter(
     (s) => selectedServices[s.id]
-  ).map((s) => ({ ...s, price: price(s.price), qty: selectedServices[s.id] }));
+  ).map((s) => ({ ...s, qty: selectedServices[s.id] }));
 
   const totalAdditionalServices = selectedAdditionalServices.reduce(
     (sum, s) => sum + s.price * s.qty,
@@ -359,10 +289,6 @@ export default function ExposantInternationalForm() {
   const handleStandTypeChange = (code: string) => {
     const next = STAND_TYPES.find((s) => s.code === code);
     setChoixStand(next ? next.code : '');
-    // Reset the surface when it no longer fits the new type
-    if (!next || (superficie && Number(superficie) < next.minSurface)) {
-      setSuperficie('');
-    }
   };
 
   const toggleService = (id: string) => {
@@ -417,9 +343,6 @@ export default function ExposantInternationalForm() {
     if (!EMAIL_RE.test(email.trim())) {
       return t("L'adresse email n'est pas valide.");
     }
-    if (standType && surfaceM2 < standType.minSurface) {
-      return t('Superficie trop petite pour ce type de stand.');
-    }
     if (!(acceptTva && acceptAnnulation && acceptConditions)) {
       return t('Veuillez accepter les trois conditions.');
     }
@@ -431,7 +354,7 @@ export default function ExposantInternationalForm() {
   /* ================================================================ */
 
   const handleSubmit = async () => {
-    if (loading || submitted) return;
+    if (loading || submitted || tariffLoading) return;
 
     setMessage('');
     setIsSuccess(false);
@@ -460,7 +383,7 @@ export default function ExposantInternationalForm() {
 
       const textValues: Record<string, string> = {
         company_name: raisonSociale,
-        country: pays,
+        country: canonicalCountry(pays),
         sector_activity: sectorLabel,
         contact_person: personneContact,
         company_registration_no: registreCommerce,
@@ -469,7 +392,7 @@ export default function ExposantInternationalForm() {
         fax,
         address: adresse,
         website: siteWeb,
-        city: ville,
+        city: villeIsWilaya ? canonicalWilaya(ville) : ville.trim(),
         mobile,
         email,
         fascia_company_name: nomEnseigne,
@@ -485,8 +408,8 @@ export default function ExposantInternationalForm() {
       // Text code, not a price — sent exactly as the PocketBase select option.
       data.stand_type = PB_STAND_TYPE[choixStand as StandTypeCode];
       data.surface = surfaceM2;
-      if (facade) data.facade = facade.price;
-      if (ad) data.catalogue = ad.price;
+      if (facade) data.facade = facade.value;
+      if (ad) data.catalogue = ad.value;
 
       data.ADDITIONAL_SERVICES = selectedAdditionalServices.map((s) => ({
         id: s.id,
@@ -525,7 +448,7 @@ export default function ExposantInternationalForm() {
 
       /* The request is saved; a failed invoice must not turn it into an error. */
       try {
-        await storeFacture(record);
+        await storeFacture(record, tariff);
       } catch (factureError) {
         console.error('Facture PDF not stored:', factureError);
       }
@@ -586,7 +509,7 @@ export default function ExposantInternationalForm() {
     </div>
   );
 
-  const currentServices = SERVICE_TABS[activeService];
+  const currentServices = serviceTabs[activeService];
 
   /* ================================================================ */
   /* RENDER                                                            */
@@ -631,7 +554,15 @@ export default function ExposantInternationalForm() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-2">
           {textField('Raison Sociale', raisonSociale, setRaisonSociale, { required: true })}
-          {textField('Pays', pays, setPays, { required: true })}
+          <LocationField
+            kind={'country'}
+            label="Pays"
+            value={pays}
+            onChange={setPays}
+            required
+            inputClass={inputClass}
+            labelClass="text-sm font-bold text-black"
+          />
 
           {/* SECTOR — fixed list like the original, with "other" */}
           <div className="flex flex-col gap-1.5">
@@ -668,7 +599,15 @@ export default function ExposantInternationalForm() {
           {textField('Fax', fax, setFax, { type: 'tel' })}
           {textField('Adresse', adresse, setAdresse, { required: true })}
           {textField('Site web', siteWeb, setSiteWeb, { type: 'url', placeholder: 'https://...' })}
-          {textField('Ville', ville, setVille, { required: true })}
+          <LocationField
+            kind={villeIsWilaya ? 'wilaya' : 'text'}
+            label="Ville"
+            value={ville}
+            onChange={setVille}
+            required
+            inputClass={inputClass}
+            labelClass="text-sm font-bold text-black"
+          />
           {textField('Mobile', mobile, setMobile, { required: true, type: 'tel' })}
           {textField('Email', email, setEmail, { required: true, type: 'email' })}
         </div>
@@ -703,26 +642,21 @@ export default function ExposantInternationalForm() {
               <option value="">{t('Sélectionnez un stand')}</option>
               {STAND_TYPES.map((s) => (
                 <option key={s.code} value={s.code}>
-                  {`${t(s.label)} (${formatMoney(price(s.rate))}/m²)`}
+                  {`${t(s.label)} (${formatMoney(tariff.stand[s.code])}/m²)`}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* SURFACE — depends on the stand type */}
+          {/* SURFACE — all sizes, whatever the stand type */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-black">{t('Superficie')} *</label>
             <select
               value={superficie}
               onChange={(e) => setSuperficie(e.target.value)}
-              disabled={!standType}
               className={inputClass}
             >
-              <option value="">
-                {standType
-                  ? t('Sélectionnez la superficie')
-                  : t("Choisissez d'abord le type de stand")}
-              </option>
+              <option value="">{t('Sélectionnez la superficie')}</option>
               {availableSurfaces.map((s) => (
                 <option key={s} value={String(s)}>
                   {s} m²
@@ -744,7 +678,7 @@ export default function ExposantInternationalForm() {
               <option value="">{t('Sans façade supplémentaire')}</option>
               {FACADES.map((f) => (
                 <option key={f.code} value={f.code}>
-                  {`${t(f.label)} — ${formatMoney(price(f.price))}`}
+                  {`${t(f.label)} — ${formatMoney(tariff.facade[f.code])}`}
                 </option>
               ))}
             </select>
@@ -763,7 +697,7 @@ export default function ExposantInternationalForm() {
               <option value="">{t('Sans publicité')}</option>
               {ADS.map((a) => (
                 <option key={a.code} value={a.code}>
-                  {`${t(a.label)} — ${formatMoney(price(a.price))}`}
+                  {`${t(a.label)} — ${formatMoney(tariff.catalogue[a.code])}`}
                 </option>
               ))}
             </select>
@@ -796,7 +730,7 @@ export default function ExposantInternationalForm() {
         </div>
 
         <div className="bg-gray-300/80 rounded-lg p-2 flex flex-wrap gap-2 text-base font-bold mt-2">
-          {(Object.keys(SERVICE_TABS) as ServiceCategory[]).map((category) => (
+          {(Object.keys(serviceTabs) as ServiceCategory[]).map((category) => (
             <button
               key={category}
               type="button"
@@ -811,6 +745,12 @@ export default function ExposantInternationalForm() {
             </button>
           ))}
         </div>
+
+{currentServices.length === 0 && (
+          <p className="mt-4 text-sm text-gray-600">
+            {tariffLoading ? t('Chargement…') : t('Aucun article disponible pour le moment.')}
+          </p>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
           {currentServices.map((service) => {
@@ -836,11 +776,11 @@ export default function ExposantInternationalForm() {
                     {serviceName(service.name, locale)}
                   </span>
                   <span className={`text-sm ${selected ? 'text-gray-400' : 'text-gray-600'}`}>
-                    {`${formatMoney(price(service.price))} HT / ${unitLabel}`}
+                    {`${formatMoney(service.price)} HT / ${unitLabel}`}
                   </span>
                   {selected && (
                     <span className="text-sm font-semibold text-gray-400">
-                      {`${quantity} × ${formatMoney(price(service.price))} = ${formatMoney(round2(price(service.price) * quantity))}`}
+                      {`${quantity} × ${formatMoney(service.price)} = ${formatMoney(round2(service.price * quantity))}`}
                     </span>
                   )}
                 </div>
@@ -1101,7 +1041,7 @@ export default function ExposantInternationalForm() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={loading || submitted}
+          disabled={loading || submitted || tariffLoading}
           className="bg-[#0ea5e9] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold h-[88px] rounded-xl text-2xl hover:bg-[#0284c7] transition-colors"
         >
           {loading

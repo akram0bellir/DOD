@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
+import { canonicalCountry, canonicalWilaya, isAlgeria } from '@/lib/location';
+import LocationField from '@/components/LocationField';
 
 const PB_URL =
   process.env.NEXT_PUBLIC_PB_URL ??
@@ -106,8 +108,8 @@ export default function DemandeVisaForm() {
         Commercial_Register_N: commercialRegisterN,
         Tax_ID_number: taxIdNumber,
         adresse,
-        ville,
-        pays,
+        ville: isAlgeria(pays) ? canonicalWilaya(ville) : ville.trim(),
+        pays: canonicalCountry(pays),
         p_a_contacter: contactPerson,
         telephone,
         fax,
@@ -296,37 +298,27 @@ export default function DemandeVisaForm() {
             />
           </div>
 
-          {/* ville */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Ville')} *
-            </label>
-
-            <input
-              type="text"
-              name="ville"
-              required
-              value={ville}
-              onChange={(e) => setVille(e.target.value)}
-              className="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500"
-            />
-          </div>
+          {/* ville — matched against the wilayas when the country is Algeria */}
+          <LocationField
+            kind={isAlgeria(pays) ? 'wilaya' : 'text'}
+            label="Ville"
+            value={ville}
+            onChange={setVille}
+            required
+            inputClass="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500"
+            labelClass="text-sm font-bold text-black"
+          />
 
           {/* pays */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-bold text-black">
-              {t('Pays')} *
-            </label>
-
-            <input
-              type="text"
-              name="pays"
-              required
-              value={pays}
-              onChange={(e) => setPays(e.target.value)}
-              className="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500"
-            />
-          </div>
+          <LocationField
+            kind="country"
+            label="Pays"
+            value={pays}
+            onChange={setPays}
+            required
+            inputClass="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500"
+            labelClass="text-sm font-bold text-black"
+          />
 
           {/* p_a_contacter */}
           <div className="flex flex-col gap-1.5">

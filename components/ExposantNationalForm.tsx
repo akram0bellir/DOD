@@ -1,11 +1,20 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
 import { serviceName } from '@/lib/serviceNames';
 import { storeFacture } from '@/lib/facture';
+import { ALGERIE, canonicalCountry, canonicalWilaya, isAlgeria } from '@/lib/location';
+import LocationField from '@/components/LocationField';
+import {
+  useTariff,
+  type CatalogueCode,
+  type FacadeCode,
+  type ServiceCategory as CatalogueCategory,
+  type StandCode,
+} from '@/lib/tariff';
 
 /* ================================================================ */
 /* POCKETBASE                                                        */
@@ -40,10 +49,12 @@ function describePbError(error: unknown): string {
 }
 
 /* ================================================================ */
-/* PRICING CONSTANTS (same values as the original SIPA page)         */
+/* PRICING CONSTANTS                                                  */
+/* Registration, stand, façade, catalogue and furniture prices come  */
+/* from PocketBase ("price" + Chaise, Table, Salon, Electronique…),  */
+/* see lib/tariff.ts. The prices written here are the fallbacks.      */
 /* ================================================================ */
 
-const DROITS_INSCRIPTION = 20000;
 const ELECTRICITE_DA_PAR_M2_JOUR = 20;
 const JOURS_SALON = 4;
 const TVA_RATE = 0.19;
@@ -96,54 +107,39 @@ const SECTEURS: { id: number; label: string }[] = [
 const SECTEUR_AUTRE_ID = 37;
 
 /* ================================================================ */
-/* STAND TYPES + ALLOWED SURFACES                                    */
-/* Outdoor spaces start at 48 m², exactly like the original page.    */
+/* STAND TYPES + SURFACES                                            */
+/* Every surface is offered for every stand type.                    */
 /* ================================================================ */
 
-const SURFACES_INTERIEUR = [
+const SURFACES = [
   12, 18, 24, 36, 48, 54, 60, 72, 80, 100, 120, 150, 200, 250, 300,
 ];
-const SURFACES_DECOUVERT = SURFACES_INTERIEUR.filter((s) => s >= 48);
 
+/* `value` is the PocketBase select option (the original price) and is
+   sent unchanged; the amount charged is the tariff entry `code`. */
 type StandType = {
-  value: string; // price per m², kept as the value so stand_type stays numeric
+  value: string;
+  code: StandCode;
   label: string;
-  rate: number;
-  surfaces: number[];
 };
 
 const STAND_TYPES: StandType[] = [
-  {
-    value: '17000',
-    label: 'Stand aménagé (17.000 DA/m²)',
-    rate: 17000,
-    surfaces: SURFACES_INTERIEUR,
-  },
-  {
-    value: '12000',
-    label: 'Stand non aménagé (12.000 DA/m²)',
-    rate: 12000,
-    surfaces: SURFACES_INTERIEUR,
-  },
-  {
-    value: '10000',
-    label: 'Emplacement découvert (10.000 DA/m²)',
-    rate: 10000,
-    surfaces: SURFACES_DECOUVERT,
-  },
+  { value: '17000', code: 'amenage', label: 'Stand aménagé' },
+  { value: '12000', code: 'non_amenage', label: 'Stand non aménagé' },
+  { value: '10000', code: 'decouvert', label: 'Emplacement découvert' },
 ];
 
-const FACADES = [
-  { value: '17000', label: 'Emplacement à 02 façades 17.000 DA' },
-  { value: '22000', label: 'Emplacement à 03 façades 22.000 DA' },
-  { value: '32000', label: 'Emplacement à 04 façades 32.000 DA' },
+const FACADES: { value: string; code: FacadeCode; label: string }[] = [
+  { value: '17000', code: '2', label: 'Emplacement à 02 façades' },
+  { value: '22000', code: '3', label: 'Emplacement à 03 façades' },
+  { value: '32000', code: '4', label: 'Emplacement à 04 façades' },
 ];
 
-const PUBLICITES = [
-  { value: '120000', label: '4ème page de couverture 120.000 DA' },
-  { value: '100000', label: '3ème page de couverture 100.000 DA' },
-  { value: '80000', label: '2ème page de couverture 80.000 DA' },
-  { value: '32000', label: '1/2 page intérieure couleur 32.000 DA' },
+const PUBLICITES: { value: string; code: CatalogueCode; label: string }[] = [
+  { value: '120000', code: 'cover4', label: '4ème page de couverture' },
+  { value: '100000', code: 'cover3', label: '3ème page de couverture' },
+  { value: '80000', code: 'cover2', label: '2ème page de couverture' },
+  { value: '32000', code: 'half', label: '1/2 page intérieure couleur' },
 ];
 
 /* ================================================================ */
@@ -170,7 +166,9 @@ const BADGES_MACARONS: Record<number, { badges: number; macarons: number }> = {
 };
 
 /* ================================================================ */
-/* SERVICES — IDs match the original "supplementN" numbering         */
+/* SERVICES — Chaise, Table, Salon and Electronique come only from  */
+/* the PocketBase catalogues (lib/tariff.ts). Only the hostess is    */
+/* defined here.                                                      */
 /* ================================================================ */
 
 type ServiceUnit = 'event' | 'm2' | 'person_day';
@@ -182,91 +180,22 @@ type Service = {
   unit: ServiceUnit;
 };
 
-type ServiceCategory =
-  | 'Chaise'
-  | 'Table'
-  | 'Salon'
-  | 'Electronique et accessoire'
-  | 'Service';
+type ServiceCategory = CatalogueCategory | 'Service';
 
-const ev = (n: number, name: string, price: number): Service => ({
-  id: `supplement${n}`,
-  name,
-  price,
-  unit: 'event',
-});
+const SERVICE_CATEGORIES: ServiceCategory[] = [
+  'Chaise',
+  'Table',
+  'Salon',
+  'Electronique et accessoire',
+  'Service',
+];
 
-const SERVICE_CATALOGUE: Record<ServiceCategory, Service[]> = {
-  Chaise: [
-    ev(6, 'ALINEA B chair', 6500),
-    ev(1, 'EVEREST B chair', 2500),
-    ev(8, 'CONFORT high chair', 7000),
-    ev(7, 'SIMILI high chair, black', 5500),
-    ev(4, 'OR chair, red and beige', 2000),
-    ev(5, 'PATCHWORK chair, grey', 8000),
-    ev(3, 'RÉUNION N chair', 2500),
-    ev(2, 'SCANDINAVE B chair', 4200),
-  ],
-  Table: [
-    ev(18, 'STANDARD desk (80×35×90)', 10500),
-    ev(19, 'STANDARD desk with panelling', 14000),
-    ev(17, 'ROUNDED large table (120×90)', 14000),
-    ev(16, 'SIMPLY large table (120×70)', 14000),
-    ev(10, 'ATELIER table (140×65×70)', 10500),
-    ev(15, 'TRIPODE coffee table (Ø60×60)', 8500),
-    ev(14, 'CLASSIC high table (Ø60)', 8500),
-    ev(13, 'SCANDINAVE high table (Ø60×100)', 8000),
-    ev(9, 'RONDE table (Ø80×70)', 5000),
-    ev(12, 'SCANDINAVE square glass table (85×85×75)', 8500),
-    ev(11, 'SCANDINAVE round glass table (Ø80×75)', 7000),
-  ],
-  Salon: [
-    ev(23, 'Premium lounge set, 4 seats + coffee table (red)', 60000),
-    ev(20, 'Standard lounge chair, black, 1 seat', 7000),
-    ev(21, 'Standard lounge set, black, 4 seats + coffee table', 25000),
-    ev(24, 'VIP lounge set, 4 seats + coffee table', 50000),
-    ev(22, 'STANDARD coffee table', 5500),
-  ],
-  'Electronique et accessoire': [
-    ev(45, 'Plastic waste bin', 800),
-    ev(46, 'Metal waste bin', 1600),
-    ev(27, '32" LED TV screen', 20000),
-    ev(28, '43" LED TV screen', 24000),
-    ev(29, '50" LED TV screen', 36000),
-    ev(30, '55" LED TV screen', 48000),
-    ev(31, '65" LED TV screen', 100000),
-    ev(44, 'Metal shelving unit', 6000),
-    ev(42, 'Guide line stand', 5000),
-    ev(26, 'Capsule coffee machine', 16000),
-    { id: 'supplement40', name: 'Carpet', price: 1700, unit: 'm2' },
-    ev(48, 'Power strips', 800),
-    ev(39, 'Artificial plants', 5500),
-    ev(38, 'A4 literature stand (MB27-M)', 16000),
-    ev(36, 'A4 literature stand (MB27-P)', 8000),
-    ev(37, 'A4 literature stand (MB27-PM)', 6500),
-    ev(41, 'Aluminium storage door', 16000),
-    ev(43, 'Lectern', 16000),
-    ev(25, '90L refrigerator', 10500),
-    ev(47, '3-spot electrical strip', 3200),
-    ev(32, 'Floor-standing TV mount', 24000),
-    ev(35, 'Display case MB26-BI', 21000),
-    ev(33, 'Display case MB26-CO', 17000),
-    ev(34, 'Display case MB26-UN', 17000),
-  ],
-  Service: [
-    {
-      id: 'supplement49',
-      name: "Hôtesse d'accueil",
-      price: 10000,
-      unit: 'person_day',
-    },
-  ],
+const HOSTESS: Service = {
+  id: 'supplement49',
+  name: "Hôtesse d'accueil",
+  price: 10000,
+  unit: 'person_day',
 };
-
-const SERVICE_CATEGORIES = Object.keys(SERVICE_CATALOGUE) as ServiceCategory[];
-const ALL_SERVICES: Service[] = SERVICE_CATEGORIES.flatMap(
-  (c) => SERVICE_CATALOGUE[c]
-);
 
 const UNIT_LABEL: Record<ServiceUnit, string> = {
   event: 'Événement',
@@ -300,6 +229,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ExposantNationalForm() {
   const { t, locale } = useLanguage();
+  const { tariff, loading: tariffLoading } = useTariff('DA');
+
+  /* PocketBase catalogues + the hostess service */
+  const catalogue = useMemo<Record<ServiceCategory, Service[]>>(
+    () => ({ ...tariff.services, Service: [HOSTESS] }),
+    [tariff]
+  );
+  const allServices = useMemo(() => SERVICE_CATEGORIES.flatMap((c) => catalogue[c]), [catalogue]);
 
   const [activeService, setActiveService] =
     useState<ServiceCategory>('Chaise');
@@ -309,7 +246,7 @@ export default function ExposantNationalForm() {
   /* -------------------------------------------------------------- */
 
   const [raisonSociale, setRaisonSociale] = useState('');
-  const [pays, setPays] = useState('');
+  const [pays, setPays] = useState(ALGERIE);
   const [secteurId, setSecteurId] = useState('');
   const [autreSecteur, setAutreSecteur] = useState('');
   const [personneContact, setPersonneContact] = useState('');
@@ -372,26 +309,26 @@ export default function ExposantNationalForm() {
   /* ================================================================ */
 
   const standType = STAND_TYPES.find((s) => s.value === choixStand);
-  const availableSurfaces = standType?.surfaces ?? [];
+  const availableSurfaces = SURFACES;
 
-  const prixParM2 = standType?.rate ?? 0;
+  const droitsInscription = tariff.registration;
+  const prixParM2 = standType ? tariff.stand[standType.code] : 0;
   /* Like the original: no stand type means surface counts as 0. */
   const surfaceM2 = standType ? Number(superficie || 0) : 0;
-  const surfaceValide =
-    !!standType && availableSurfaces.includes(surfaceM2);
+  const surfaceValide = SURFACES.includes(Number(superficie));
 
   const prixStand = prixParM2 * surfaceM2;
 
   /* Electricity = surface × 4 days × 20 DA  (= 80 × surface) */
   const electricite = surfaceM2 * JOURS_SALON * ELECTRICITE_DA_PAR_M2_JOUR;
 
-  const majoration = Number(majorationFacades || 0);
-  const publicite = Number(publiciteCatalogue || 0);
+  const facade = FACADES.find((f) => f.value === majorationFacades);
+  const majoration = facade ? tariff.facade[facade.code] : 0;
+  const pub = PUBLICITES.find((p) => p.value === publiciteCatalogue);
+  const publicite = pub ? tariff.catalogue[pub.code] : 0;
 
-  /* Changing the stand type resets the surface (original stand_cat). */
   const handleStandTypeChange = (value: string) => {
     setChoixStand(value);
-    setSuperficie('');
   };
 
   /* ================================================================ */
@@ -416,7 +353,7 @@ export default function ExposantNationalForm() {
     });
   };
 
-  const selectedAdditionalServices = ALL_SERVICES.filter(
+  const selectedAdditionalServices = allServices.filter(
     (service) => selectedServices[service.id]
   ).map((service) => {
     const qty = selectedServices[service.id];
@@ -443,7 +380,7 @@ export default function ExposantNationalForm() {
   /* ================================================================ */
 
   const totalHT =
-    DROITS_INSCRIPTION +
+    droitsInscription +
     prixStand +
     electricite +
     majoration +
@@ -457,7 +394,7 @@ export default function ExposantNationalForm() {
   /* BADGES / MACARONS                                                 */
   /* ================================================================ */
 
-  const badgesMacarons = surfaceValide ? BADGES_MACARONS[surfaceM2] : null;
+  const badgesMacarons = surfaceValide ? BADGES_MACARONS[Number(superficie)] : null;
 
   /* ================================================================ */
   /* VALIDATION                                                         */
@@ -485,6 +422,9 @@ export default function ExposantNationalForm() {
     ["Nom sur l'enseigne", nomEnseigne],
   ];
 
+  /* National exhibitors are in Algeria unless they say otherwise. */
+  const villeIsWilaya = pays.trim() === '' || isAlgeria(pays);
+
   const missing = requiredFields
     .filter(([, value]) => value.trim() === '')
     .map(([label]) => label);
@@ -497,6 +437,7 @@ export default function ExposantNationalForm() {
   /* ================================================================ */
 
   const handleSubmit = async () => {
+    if (tariffLoading) return;
     setMessage('');
     setIsSuccess(false);
 
@@ -519,7 +460,7 @@ export default function ExposantNationalForm() {
     }
 
     if (!surfaceValide) {
-      setMessage("La superficie choisie n'est pas disponible pour ce type de stand.");
+      setMessage("La superficie choisie n'est pas valide.");
       return;
     }
 
@@ -550,7 +491,7 @@ export default function ExposantNationalForm() {
          sent as '', which non-text field types reject. */
       const textValues: Record<string, string> = {
         company_name: raisonSociale.trim(),
-        country: pays.trim(),
+        country: canonicalCountry(pays),
         sector_activity: sectorValue,
         contact_person: personneContact.trim(),
         company_registration_no: registreCommerce.trim(),
@@ -559,7 +500,7 @@ export default function ExposantNationalForm() {
         fax: fax.trim(),
         address: adresse.trim(),
         website: siteWeb.trim(),
-        city: ville.trim(),
+        city: villeIsWilaya ? canonicalWilaya(ville) : ville.trim(),
         mobile: mobile.trim(),
         email: email.trim(),
         fascia_company_name: nomEnseigne.trim(),
@@ -570,11 +511,12 @@ export default function ExposantNationalForm() {
         Object.entries(textValues).filter(([, v]) => v !== '')
       );
 
-      data.stand_type = prixParM2;
+      /* Select options, sent exactly as before (see STAND_TYPES) */
+      data.stand_type = Number(choixStand);
       data.surface = surfaceM2;
 
-      if (majorationFacades !== '') data.facade = majoration;
-      if (publiciteCatalogue !== '') data.catalogue = publicite;
+      if (majorationFacades !== '') data.facade = Number(majorationFacades);
+      if (publiciteCatalogue !== '') data.catalogue = Number(publiciteCatalogue);
 
       /* Sent as a real array for a `json` column. If ADDITIONAL_SERVICES
          is a plain `text` column instead, wrap it:
@@ -599,7 +541,7 @@ export default function ExposantNationalForm() {
 
       /* The request is saved; a failed invoice must not turn it into an error. */
       try {
-        await storeFacture(record);
+        await storeFacture(record, tariff);
       } catch (factureError) {
         console.error('Facture PDF not stored:', factureError);
       }
@@ -728,9 +670,25 @@ export default function ExposantNationalForm() {
           {textField('Site web', siteWeb, setSiteWeb, { type: 'url', placeholder: 'https://...' })}
           {textField('Adresse', adresse, setAdresse, { required: true })}
           {textField('Mobile', mobile, setMobile, { required: true, type: 'tel' })}
-          {textField('Ville', ville, setVille, { required: true })}
+          <LocationField
+            kind={villeIsWilaya ? 'wilaya' : 'text'}
+            label="Ville"
+            value={ville}
+            onChange={setVille}
+            required
+            inputClass={inputClass}
+            labelClass={labelClass}
+          />
           {textField('Email', email, setEmail, { required: true, type: 'email' })}
-          {textField('Pays', pays, setPays, { required: true })}
+          <LocationField
+            kind={'country'}
+            label="Pays"
+            value={pays}
+            onChange={setPays}
+            required
+            inputClass={inputClass}
+            labelClass={labelClass}
+          />
 
         </div>
 
@@ -755,7 +713,7 @@ export default function ExposantNationalForm() {
             {t("Droits d'inscription:")}
           </span>
           <span className="text-black text-2xl font-bold">
-            {formatDA(DROITS_INSCRIPTION)} DA
+            {formatDA(droitsInscription)} DA
           </span>
         </div>
 
@@ -784,26 +742,21 @@ export default function ExposantNationalForm() {
               <option value="">{t('Sélectionnez un stand')}</option>
               {STAND_TYPES.map((s) => (
                 <option key={s.value} value={s.value}>
-                  {t(s.label)}
+                  {`${t(s.label)} (${formatDA(tariff.stand[s.code])} DA/m²)`}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* SURFACE — depends on stand type */}
+          {/* SURFACE — all sizes, whatever the stand type */}
           <div className="flex flex-col gap-1.5">
             <label className={labelClass}>{t('Superficie')} *</label>
             <select
               value={superficie}
               onChange={(e) => setSuperficie(e.target.value)}
-              disabled={!standType}
               className={inputClass}
             >
-              <option value="">
-                {standType
-                  ? t('Sélectionnez la superficie')
-                  : t("Choisissez d'abord le type de stand")}
-              </option>
+              <option value="">{t('Sélectionnez la superficie')}</option>
               {availableSurfaces.map((s) => (
                 <option key={s} value={s}>
                   {s} m²
@@ -825,7 +778,7 @@ export default function ExposantNationalForm() {
               <option value="">{t('Sans façade supplémentaire')}</option>
               {FACADES.map((f) => (
                 <option key={f.value} value={f.value}>
-                  {t(f.label)}
+                  {`${t(f.label)} ${formatDA(tariff.facade[f.code])} DA`}
                 </option>
               ))}
             </select>
@@ -842,7 +795,7 @@ export default function ExposantNationalForm() {
               <option value="">{t('Sans publicité')}</option>
               {PUBLICITES.map((p) => (
                 <option key={p.value} value={p.value}>
-                  {t(p.label)}
+                  {`${t(p.label)} ${formatDA(tariff.catalogue[p.code])} DA`}
                 </option>
               ))}
             </select>
@@ -918,7 +871,7 @@ export default function ExposantNationalForm() {
         {/* CATEGORY TABS */}
         <div className="bg-gray-300/80 rounded-lg p-2 flex flex-wrap gap-2 text-base font-bold mt-2">
           {SERVICE_CATEGORIES.map((category) => {
-            const count = SERVICE_CATALOGUE[category].filter(
+            const count = catalogue[category].filter(
               (s) => selectedServices[s.id]
             ).length;
 
@@ -941,9 +894,15 @@ export default function ExposantNationalForm() {
         </div>
 
         {/* SERVICES */}
+        {catalogue[activeService].length === 0 && (
+          <p className="mt-4 text-sm text-gray-600">
+            {tariffLoading ? t('Chargement…') : t('Aucun article disponible pour le moment.')}
+          </p>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
 
-          {SERVICE_CATALOGUE[activeService].map((service) => {
+          {catalogue[activeService].map((service) => {
             const selected = !!selectedServices[service.id];
             const quantity = selectedServices[service.id] || 0;
             const isHostess = service.unit === 'person_day';
@@ -1217,7 +1176,7 @@ export default function ExposantNationalForm() {
         <div className="w-full bg-white rounded-xl mt-6 p-8 md:p-12 flex flex-col gap-4 shadow-lg">
 
           {[
-            ["Droits d'inscription", DROITS_INSCRIPTION],
+            ["Droits d'inscription", droitsInscription],
             ['Stand', prixStand],
             ['Électricité', electricite],
             ['Façades', majoration],
@@ -1277,7 +1236,7 @@ export default function ExposantNationalForm() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={loading || tariffLoading}
           className="bg-[#0ea5e9] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold h-[88px] rounded-xl text-2xl hover:bg-[#0284c7] transition-colors"
         >
           {loading ? t('ENVOI...') : t('Soumettre la demande')}

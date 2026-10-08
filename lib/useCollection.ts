@@ -9,7 +9,7 @@ import { pb } from '@/lib/pocketbase';
    on the site is the order they were added in PocketBase. */
 const cache = new Map<string, Promise<RecordModel[]>>();
 
-function fetchCollection(name: string): Promise<RecordModel[]> {
+export function fetchCollection(name: string): Promise<RecordModel[]> {
   let request = cache.get(name);
   if (!request) {
     request = pb
