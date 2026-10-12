@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import Image from 'next/image';
 import ImageCarouselBanner from '@/components/ImageCarouselBanner';
@@ -11,6 +11,7 @@ import Timeline from '@/components/TimelineItems';
 import { useLanguage } from '@/lib/i18n';
 import { fileUrl, localized, useCollection } from '@/lib/useCollection';
 import { sanitizeHtml } from '@/lib/sanitizeHtml';
+import { pb } from '@/lib/pocketbase';
 
 const algeriaData = [
   { label: 'Nom officiel', value: 'République Démocratique Algérienne' },
@@ -38,8 +39,36 @@ const objectives = [
   "Encourager la coopération intersectorielle et les partenariats stratégiques en vue de diversifier et de renforcer les activités liées à la pêche et à l'aquaculture, dans un objectif de durabilité et d'innovation continue.",
 ];
 
+/* The stats bar figures live in one PocketBase record. */
+const STATS_RECORD_ID = 'v5hgkftjtmcd7lc';
+
+type Stats = {
+  Pays: number;
+  Exposants: number;
+  SOCIeTeS_INTERNATIONALES: number;
+  Visiteurs: number;
+};
+
+/* 12 → "12+", 10800 → "10.8K+", 25000 → "25K+" */
+function formatStat(value: number | undefined): string {
+  if (value === undefined || !Number.isFinite(value)) return '–';
+  if (value >= 1000) {
+    const k = Math.round(value / 100) / 10;
+    return `${String(k).replace(/\.0$/, '')}K+`;
+  }
+  return `${Math.round(value)}+`;
+}
+
 export default function Home() {
   const { t, locale } = useLanguage();
+
+  const [stats, setStats] = useState<Partial<Stats>>({});
+  useEffect(() => {
+    pb.collection('Stats_Bar')
+      .getOne<Stats>(STATS_RECORD_ID, { requestKey: null })
+      .then(setStats)
+      .catch((err) => console.error('PocketBase error (Stats_Bar):', err));
+  }, []);
 
   /* Objectives from the PocketBase "Objectif" collection. Each record is
      one objective; a record whose text is already a list is shown as is. */
@@ -62,19 +91,19 @@ export default function Home() {
       <div className="w-full max-w-[1200px] bg-[#42a5f5] rounded-xl flex flex-wrap divide-y md:divide-y-0 md:divide-x divide-sky-300 py-6 px-4 mb-16 shadow-md">
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
           <span className="text-white font-semibold tracking-wider">{t('Pays')}</span>
-          <span className="text-white font-black text-3xl">30+</span>
+          <span className="text-white font-black text-3xl">{formatStat(stats.Pays)}</span>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
           <span className="text-white font-semibold tracking-wider">{t('Exposants')}</span>
-          <span className="text-white font-black text-3xl">170+</span>
+          <span className="text-white font-black text-3xl">{formatStat(stats.Exposants)}</span>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
           <span className="text-white font-semibold tracking-wider text-center leading-tight">{t('SOCIÉTÉS\nINTERNATIONALES').split('\n').map((line) => <React.Fragment key={line}>{line}<br /></React.Fragment>)}</span>
-          <span className="text-white font-black text-3xl">16+</span>
+          <span className="text-white font-black text-3xl">{formatStat(stats.SOCIeTeS_INTERNATIONALES)}</span>
         </div>
         <div className="flex-1 flex items-center justify-center gap-2 min-w-[200px] py-4 md:py-0">
           <span className="text-white font-semibold tracking-wider">{t('Visiteurs')}</span>
-          <span className="text-white font-black text-3xl">25K+</span>
+          <span className="text-white font-black text-3xl">{formatStat(stats.Visiteurs)}</span>
         </div>
       </div>
 
