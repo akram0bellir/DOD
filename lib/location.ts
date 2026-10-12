@@ -115,7 +115,7 @@ function makeKeys(names: string[]): string[] {
 const ISO_CODES =
   'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ ' +
   'CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR ' +
-  'GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP ' +
+  'GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IM IN IO IQ IR IS IT JE JM JO JP ' +
   'KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT ' +
   'MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW ' +
   'SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG ' +
@@ -129,6 +129,7 @@ const COUNTRY_ALIASES: Record<string, string[]> = {
   US: ['USA', 'Etats-Unis', 'Etats Unis', 'United States of America', 'America', 'Amérique'],
   GB: ['UK', 'Royaume Uni', 'United Kingdom', 'Angleterre', 'England', 'Grande Bretagne', 'Great Britain', 'Britain'],
   NL: ['Hollande', 'Holland', 'Pays Bas'],
+  PS: ['Territoires palestiniens', 'Palestinian Territories', 'State of Palestine', 'État de Palestine'],
   TN: ['TUN', 'Tunisia'],
   MA: ['MAR', 'Morocco', 'المغرب'],
   EG: ['EGY', 'Egypt', 'مصر'],
@@ -140,6 +141,11 @@ const COUNTRY_ALIASES: Record<string, string[]> = {
   ES: ['Espagne', 'Spain', 'España'],
   IT: ['Italie', 'Italy', 'Italia'],
   RU: ['Russie', 'Russia'],
+};
+
+/* Names used instead of Intl's ("Territoires palestiniens"). */
+const LABEL_OVERRIDES: Record<string, Place['labels']> = {
+  PS: { fr: 'Palestine', en: 'Palestine', ar: 'فلسطين' },
 };
 
 let countriesCache: Place[] | null = null;
@@ -160,7 +166,7 @@ export function countries(): Place[] {
 
   countriesCache = ISO_CODES.split(' ')
     .map((code) => {
-      const labels = {
+      const labels = LABEL_OVERRIDES[code] ?? {
         fr: fr?.of(code) ?? code,
         en: en?.of(code) ?? code,
         ar: ar?.of(code) ?? code,
@@ -196,7 +202,7 @@ export function isAlgeria(country: string): boolean {
 }
 
 /* ---------------------------------------------------------------- */
-/* WILAYAS (58)                                                      */
+/* WILAYAS (69)                                                      */
 /* ---------------------------------------------------------------- */
 
 /* [code, French, Arabic, other spellings / English / old names] */
@@ -259,6 +265,17 @@ const WILAYA_DATA: Array<[number, string, string, string[]]> = [
   [56, 'Djanet', 'جانت', ['Janet']],
   [57, "El M'Ghair", 'المغير', ['El Meghaier', 'El Mghair', 'Meghaier']],
   [58, 'El Meniaa', 'المنيعة', ['El Menia', 'El Goléa', 'El Golea']],
+  [59, 'Aflou', 'أفلو', []],
+  [60, 'Barika', 'بريكة', []],
+  [61, 'Ksar Chellala', 'قصر الشلالة', ['Ksar Chelala', 'Reibell']],
+  [62, 'Messaad', 'مسعد', ['Mesaad']],
+  [63, 'Aïn Oussera', 'عين وسارة', ['Ain Oussera', 'Ain Ouessara']],
+  [64, 'Bou Saâda', 'بوسعادة', ['Bou Saada', 'Boussaada', 'Bousaada']],
+  [65, 'El Abiodh Sidi Cheikh', 'الأبيض سيدي الشيخ', ['El Abiod Sidi Cheikh', 'Abiodh Sidi Cheikh']],
+  [66, 'El Kantara', 'القنطرة', ['Kantara']],
+  [67, 'Bir El Ater', 'بئر العاتر', ['Bir Elater']],
+  [68, 'Ksar El Boukhari', 'قصر البخاري', ['Ksar Boukhari', 'Boghari']],
+  [69, 'El Aricha', 'العريشة', ['Aricha']],
 ];
 
 export const WILAYAS: Place[] = WILAYA_DATA.map(([code, fr, ar, aliases]) => {
