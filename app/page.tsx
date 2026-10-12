@@ -175,16 +175,7 @@ export default function Home() {
         <div className="hidden md:flex flex-col gap-8" aria-hidden="true">
           <div className="mt-8 border-t border-gray-200 pt-8"></div>
 
-          {algeriaData.map((item, index) => (
-            <div key={`dup-${index}`} className="flex flex-col gap-1">
-              <h3 className="text-[#0ea5e9] text-lg font-semibold">
-                {t(item.label)}
-              </h3>
-              <p className="text-gray-800 text-lg font-medium">
-                {t(item.value)}
-              </p>
-            </div>
-          ))}
+     
         </div>
       </div>
     </div>
