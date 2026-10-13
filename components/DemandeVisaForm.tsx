@@ -5,6 +5,7 @@ import PocketBase, { ClientResponseError } from 'pocketbase';
 import { useLanguage } from '@/lib/i18n';
 import { canonicalCountry, canonicalWilaya, isAlgeria } from '@/lib/location';
 import LocationField from '@/components/LocationField';
+import { SECTEURS, SECTEUR_AUTRE_ID, secteurValue } from '@/lib/secteurs';
 
 const PB_URL =
   process.env.NEXT_PUBLIC_PB_URL ??
@@ -52,7 +53,9 @@ export default function DemandeVisaForm() {
   // =========================
 
   const [companyName, setCompanyName] = useState('');
+  /* Sector id from SECTEURS; 37 = typed in autreSecteur */
   const [secteur, setSecteur] = useState('');
+  const [autreSecteur, setAutreSecteur] = useState('');
   const [commercialRegisterN, setCommercialRegisterN] = useState('');
   const [taxIdNumber, setTaxIdNumber] = useState('');
   const [adresse, setAdresse] = useState('');
@@ -104,7 +107,7 @@ export default function DemandeVisaForm() {
     try {
       const values: Record<string, string> = {
         companyName,
-        secteur,
+        secteur: secteurValue(secteur, autreSecteur),
         Commercial_Register_N: commercialRegisterN,
         Tax_ID_number: taxIdNumber,
         adresse,
@@ -159,6 +162,7 @@ export default function DemandeVisaForm() {
 
       setCompanyName('');
       setSecteur('');
+      setAutreSecteur('');
       setCommercialRegisterN('');
       setTaxIdNumber('');
       setAdresse('');
@@ -241,15 +245,34 @@ export default function DemandeVisaForm() {
               {t("Secteur d'activité")} *
             </label>
 
-            <input
-              type="text"
-              name="secteur"
+            <select
+              name="id_secteur"
               required
-              placeholder="Ex: Technologies, Santé, ..."
               value={secteur}
-              onChange={(e) => setSecteur(e.target.value)}
+              onChange={(e) => {
+                setSecteur(e.target.value);
+                if (Number(e.target.value) !== SECTEUR_AUTRE_ID) setAutreSecteur('');
+              }}
               className="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500"
-            />
+            >
+              <option value="">{t("Secteur d'activité")} *</option>
+              {SECTEURS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {t(s.label)}
+                </option>
+              ))}
+            </select>
+
+            {Number(secteur) === SECTEUR_AUTRE_ID && (
+              <input
+                type="text"
+                required
+                placeholder={t('Préciser le secteur')}
+                value={autreSecteur}
+                onChange={(e) => setAutreSecteur(e.target.value)}
+                className="w-full bg-[#f3f4f6] border border-gray-300 rounded h-10 px-3 focus:outline-none focus:border-sky-500 mt-2"
+              />
+            )}
           </div>
 
           {/* Commercial_Register_N */}

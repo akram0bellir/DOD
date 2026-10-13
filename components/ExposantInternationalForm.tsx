@@ -7,6 +7,7 @@ import { useLanguage } from '@/lib/i18n';
 import { storeFacture } from '@/lib/facture';
 import { canonicalCountry, canonicalWilaya, isAlgeria } from '@/lib/location';
 import LocationField from '@/components/LocationField';
+import { SECTEURS, SECTEUR_AUTRE_ID, secteurValue } from '@/lib/secteurs';
 import { useCurrency } from '@/lib/currency';
 import { serviceName } from '@/lib/serviceNames';
 import { useTariff, type CatalogueCode, type FacadeCode, type ServiceCategory } from '@/lib/tariff';
@@ -109,46 +110,7 @@ const ADS: { code: CatalogueCode; label: string; value: number }[] = [
   { code: 'half', label: '1/2 page intérieure couleur', value: 400 },
 ];
 
-const SECTORS = [
-  'Pêche : Pêche artisanale',
-  'Pêche : Pêche côtière',
-  'Pêche : Pêche industrielle',
-  'Pêche : Pêche au corail',
-  'Pêche : Pêche continentale',
-  'Pêche : Pêche récréative',
-  'Pêche : Pêche au thon rouge',
-  'Aquaculture : Aquaculture marine',
-  'Aquaculture : Aquaculture continentale',
-  "Aquaculture : Pisciculture intégrée (produits d'eau douce)",
-  'Autres secteurs : Aliments pour poissons',
-  'Autres secteurs : Génétique et reproduction',
-  'Autres secteurs : Écloseries',
-  'Autres secteurs : Fabrication de cages flottantes',
-  'Autres secteurs : Fabrication de filets de pêche',
-  'Autres secteurs : Équipements pour élevage de poissons',
-  'Autres secteurs : Équipements pour la pêche professionnelle',
-  'Autres secteurs : Appareils de pêche et navires',
-  'Autres secteurs : Construction navale',
-  'Autres secteurs : Équipements portuaires',
-  'Autres secteurs : Hygiène et santé des poissons',
-  'Autres secteurs : Transformation des produits halieutiques',
-  'Autres secteurs : Biotechnologies marines',
-  'Autres secteurs : Énergies renouvelables',
-  'Autres secteurs : Consultance',
-  'Autres secteurs : Commerce et distribution',
-  'Autres secteurs : Logistique',
-  'Autres secteurs : Écotourisme et pêche récréative',
-  'Autres secteurs : Finance et investissements',
-  'Autres secteurs : Bateaux de plaisance',
-  'Autres secteurs : Centres de recherche',
-  'Autres secteurs : Plongée sous-marine',
-  'Autres secteurs : Assurance',
-  'Autres secteurs : Banque',
-  'Autres secteurs : Coopérative',
-  'Autres secteurs : Association',
-  'Autres : À préciser',
-];
-const OTHER_SECTOR_ID = '37';
+const OTHER_SECTOR_ID = String(SECTEUR_AUTRE_ID);
 
 /* ================================================================ */
 /* HELPERS                                                           */
@@ -376,10 +338,7 @@ export default function ExposantInternationalForm() {
     setLoading(true);
 
     try {
-      const sectorLabel =
-        secteurId === OTHER_SECTOR_ID
-          ? `Autres : ${autreSecteur.trim()}`
-          : SECTORS[Number(secteurId) - 1];
+      const sectorLabel = secteurValue(secteurId, autreSecteur);
 
       const textValues: Record<string, string> = {
         company_name: raisonSociale,
@@ -575,9 +534,9 @@ export default function ExposantInternationalForm() {
               className={inputClass}
             >
               <option value="">{t('Sélectionnez un secteur')}</option>
-              {SECTORS.map((label, i) => (
-                <option key={label} value={String(i + 1)}>
-                  {t(label)}
+              {SECTEURS.map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {t(s.label)}
                 </option>
               ))}
             </select>
